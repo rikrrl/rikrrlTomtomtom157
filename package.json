@@ -1,0 +1,18 @@
+{
+  "name": "roblox-ai-studio",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "KI-Entwickler für Roblox Studio: Spiele aus Text oder Link erzeugen, mit Chat weiterbearbeiten und als .rbxlx/.rbxl exportieren.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "build": "node scripts/build.js",
+    "test": "node --test tests/"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
