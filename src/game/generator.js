@@ -906,6 +906,7 @@ function buildZone(zone, palette, rng, index, detail, theme) {
 
 /** Baut den kompletten Instanzbaum. */
 export function generateProject(spec) {
+  const theme = THEMES[spec.themeKey] || THEMES.default;
   const rng = mulberry32((spec.seed || hashSeed(spec.title || 'game')) ^ 0x9e3779b9);
   const genre = GENRES[spec.genre] || GENRES.simulator;
   const palette = { ...genre.palette, ...theme.palette, ...(spec.palette || {}) };
