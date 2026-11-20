@@ -3,9 +3,9 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-import { analyzePrompt, applyChatInstruction } from './src/ai/engine.js';
+import { analyzePrompt, applyChatInstruction, QUALITY_LEVELS } from './src/ai/engine.js';
 import { analyzeRobloxLink } from './src/ai/link.js';
-import { generateProject } from './src/game/generator.js';
+import { generateProject, validateBuild } from './src/game/generator.js';
 import { serializeRbxlx } from './src/game/rbxlx.js';
 import { buildPlan, listScripts } from './src/game/plan.js';
 import { listProjects, getProject, saveProject, deleteProject, newId, newToken, flush } from './src/store.js';
@@ -16,23 +16,49 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json({ limit: '3mb' }));
 
-const STAGE_LABELS = [
-  'Beschreibung analysieren',
-  'Spielkonzept und Balancing',
-  'Map und Gelände',
-  'Zonen, Wege und Gebäude',
-  'Shops, Coins und Wirtschaft',
-  'Pets, NPCs und Quests',
-  'UI, HUD und Effekte',
-  'Luau-Skripte',
-  'Speicherstände und Multiplayer',
-  'Export vorbereiten',
+/**
+ * Arbeitsphasen der KI. Gewichte bestimmen, wie viel Zeit eine Phase bekommt;
+ * die Qualitätsstufe legt die Gesamtdauer und die Zahl der Durchgänge fest.
+ * min: 1 = ab "gründlich", min: 2 = nur "maximal".
+ */
+const STAGE_PLAN = [
+  { label: 'Beschreibung und Wunschfeatures auswerten', weight: 1 },
+  { label: 'Genre, Zielgruppe und Kernspielschleife festlegen', weight: 1 },
+  { label: 'Wirtschaft, Preise und Fortschrittskurve berechnen', weight: 2 },
+  { label: 'Gelände und Map-Grundform modellieren', weight: 3 },
+  { label: 'Zonen, Wege und Plattformen anlegen', weight: 3 },
+  { label: 'Gebäude mit Fassade, Dach und Schild bauen', weight: 4 },
+  { label: 'Shops, Artikel und Inventar einrichten', weight: 2 },
+  { label: 'Pets, NPCs und Quests verteilen', weight: 2 },
+  { label: 'Erfolge, Talente und Tagesbelohnungen einbauen', weight: 2 },
+  { label: 'Rätsel- und Wortspiel-Stationen platzieren', weight: 2, min: 1 },
+  { label: 'Deko, Beleuchtung und Atmosphäre setzen', weight: 3 },
+  { label: 'HUD, Menüs und UI-Layout gestalten', weight: 2 },
+  { label: 'Luau-Systeme und Serverlogik schreiben', weight: 3 },
+  { label: 'Speicherstände und Multiplayer verdrahten', weight: 2 },
+  { label: 'Detaillierungs-Durchgang (zweiter Pass)', weight: 2, min: 1 },
+  { label: 'Balancing-Pässe und Feinschliff', weight: 2, min: 1 },
+  { label: 'Struktur, Skripte und Export prüfen', weight: 1 },
 ];
+
+function stagePlanFor(quality) {
+  const level = QUALITY_LEVELS[quality] || QUALITY_LEVELS.grundlich;
+  const rank = { schnell: 0, grundlich: 1, maximal: 2 }[level.level] ?? 1;
+  const stages = STAGE_PLAN.filter((stage) => (stage.min || 0) <= rank);
+  const totalWeight = stages.reduce((sum, stage) => sum + stage.weight, 0);
+  const totalMs = level.seconds * 1000;
+  return stages.map((stage, i) => ({
+    id: i + 1,
+    label: stage.label,
+    status: 'pending',
+    ms: Math.max(40, Math.round((stage.weight / totalWeight) * totalMs)),
+  }));
+}
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-function buildStages() {
-  return STAGE_LABELS.map((label, i) => ({ id: i + 1, label, status: 'pending' }));
+function buildStages(quality) {
+  return stagePlanFor(quality);
 }
 
 /** Erzeugt Instanzbaum und abgeleitete Daten (Statistiken, Skriptliste). */
@@ -42,25 +68,33 @@ function materialize(project) {
   project.scripts = built.services.flatMap((service) => listScripts(service));
   project.mapInfo = built.mapInfo;
   project.zoneCount = built.zoneCount;
+  project.systems = built.systems || [];
+  project.validation = validateBuild(built, project.spec);
   return built;
 }
 
 /** Führt die Bauphasen mit sichtbarem Fortschritt aus. */
 async function runBuild(project) {
-  project.stages = buildStages();
+  project.stages = buildStages(project.spec.quality);
+  project.estimatedMs = project.stages.reduce((sum, stage) => sum + stage.ms, 0);
   project.progress = 0;
   project.status = 'building';
+  delete project.error;
   saveProject(project);
-  for (let i = 0; i < project.stages.length; i++) {
-    await delay(120);
-    project.stages[i].status = 'done';
-    project.progress = Math.round(((i + 1) / project.stages.length) * 100);
+  for (const stage of project.stages) {
+    stage.status = 'running';
+    saveProject(project);
+    await delay(stage.ms);
+    stage.status = 'done';
+    const done = project.stages.filter((s) => s.status === 'done').length;
+    project.progress = Math.round((done / project.stages.length) * 100);
     saveProject(project);
   }
   try {
     materialize(project);
     project.status = 'ready';
     project.progress = 100;
+    project.builtAt = new Date().toISOString();
   } catch (error) {
     project.status = 'error';
     project.error = error.message;
@@ -92,7 +126,7 @@ function newProjectShell(spec, source, understanding) {
     source,
     status: 'building',
     progress: 0,
-    stages: buildStages(),
+    stages: buildStages(spec.quality),
     chat: [],
     version: '1.0.0',
     syncToken: newToken(),
@@ -107,7 +141,8 @@ app.get('/api/health', (req, res) => {
     name: 'Roblox AI Studio',
     engine: 'lokale Engine',
     version: '1.0.0',
-    capabilities: ['prompt-build', 'link-rebuild', 'chat-edit', 'rbxlx-export', 'studio-plugin'],
+    capabilities: ['prompt-build', 'link-rebuild', 'chat-edit', 'rbxlx-export', 'studio-plugin', 'quality-levels', 'word-game'],
+    qualities: Object.values(QUALITY_LEVELS).map((q) => ({ level: q.level, label: q.label, seconds: q.seconds, systems: q.systems, passes: q.passes })),
   });
 });
 
@@ -140,7 +175,7 @@ app.post('/api/projects', async (req, res) => {
   }
 
   try {
-    const { spec, understanding } = analyzePrompt(prompt);
+    const { spec, understanding } = analyzePrompt(prompt, { quality: body.quality });
     const project = newProjectShell(spec, { type: 'prompt', text: prompt }, understanding);
     project.chat.push({ role: 'user', text: prompt, at: new Date().toISOString() });
     saveProject(project);
@@ -151,7 +186,8 @@ app.post('/api/projects', async (req, res) => {
       text:
         `Ich habe "${spec.title}" erzeugt.\n` +
         `Genre: ${understanding.genreLabel}, Map: ${spec.mapSize} mit ${spec.zoneCount} Zonen.\n` +
-        `${project.stats.parts} Bauteile, ${project.stats.instances} Instanzen, ${project.stats.scriptLines} Zeilen Luau.\n\n` +
+        `${project.stats.parts} Bauteile, ${project.stats.instances} Instanzen, ${project.stats.scriptLines} Zeilen Luau, ${(project.systems || []).length} aktive Systeme.\n` +
+        `Qualitätsstufe: ${spec.qualityLabel} · Qualitätsprüfung ${project.validation ? project.validation.score : 0}/100.\n\n` +
         'Du kannst jetzt als .rbxlx exportieren oder mir Änderungen sagen – ich bearbeite dasselbe Projekt weiter.',
     });
     saveProject(project);
@@ -183,13 +219,15 @@ async function createFromLink(body, res) {
     return res.status(422).json({ analysis, error: analysis.error });
   }
 
-  const promptAnalysis = analyzePrompt(`${analysis.facts.name} ${analysis.facts.description || ''}`);
+  const promptAnalysis = analyzePrompt(`${analysis.facts.name} ${analysis.facts.description || ''}`, { quality: body.quality });
   const spec = {
     ...promptAnalysis.spec,
     ...analysis.spec,
     title: analysis.facts.name || promptAnalysis.spec.title,
     features: { ...promptAnalysis.spec.features, ...analysis.spec.features },
     palette: promptAnalysis.spec.palette,
+    quality: promptAnalysis.spec.quality,
+    qualityLabel: promptAnalysis.spec.qualityLabel,
     prompt: `Nachbau von ${analysis.facts.name}`,
     description: analysis.facts.description || '',
     source: { type: 'link', url, facts: analysis.facts },
