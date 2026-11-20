@@ -230,9 +230,9 @@ test('Wortspiel-Genre erzeugt ein spielbares Wortspiel', () => {
   assert.ok(validation.score >= 80, `Qualitätsprüfung zu schwach: ${validation.score}/100`);
 });
 
-test('Qualitätsstufen erhöhen Detailtiefe und Systemzahl', () => {
+test('Spieltiefe erhöht Detaildichte und Systemzahl', () => {
   const prompt = 'Erstelle ein Simulator-Spiel mit Pets, Coins, Shops und einer großen Map.';
-  const results = ['schnell', 'grundlich', 'maximal'].map((quality) => {
+  const results = ['basis', 'hoch', 'profi', 'meister'].map((quality) => {
     const { spec } = analyzePrompt(prompt, { quality });
     assert.equal(spec.quality, quality);
     const project = generateProject(spec);
@@ -247,8 +247,29 @@ test('Qualitätsstufen erhöhen Detailtiefe und Systemzahl', () => {
     };
   });
 
-  assert.ok(results[0].parts < results[1].parts, 'Gründlich muss mehr Bauteile haben als Schnell');
-  assert.ok(results[1].parts < results[2].parts, 'Maximal muss mehr Bauteile haben als Gründlich');
-  assert.ok(results[0].systems < results[2].systems, 'Maximal muss mehr Systeme aktivieren');
-  assert.ok(results[2].scripts >= results[0].scripts, 'Maximal darf nicht weniger Skripte haben');
+  assert.ok(results[0].parts < results[1].parts, 'Hoch muss mehr Bauteile haben als Basis');
+  assert.ok(results[1].parts < results[2].parts, 'Profi muss mehr Bauteile haben als Hoch');
+  assert.ok(results[0].systems < results[2].systems, 'Profi muss mehr Systeme aktivieren');
+  assert.ok(results[2].scripts >= results[0].scripts, 'Profi darf nicht weniger Skripte haben');
+});
+
+test('Tempo-Regler erzeugt echte Zusatzarbeit und mehr Inhalt', () => {
+  const prompt = 'Erstelle ein Tycoon-Spiel mit Fabrik, Upgrades und Einnahmen.';
+  const base = analyzePrompt(prompt, { quality: 'hoch', speed: 'turbo' });
+  const slow = analyzePrompt(prompt, { quality: 'hoch', speed: 'ausgiebig' });
+
+  assert.equal(base.spec.quality, slow.spec.quality, 'Tempo darf die Spieltiefe nicht verändern');
+  assert.equal(base.spec.speed, 'turbo');
+  assert.equal(slow.spec.speed, 'ausgiebig');
+  assert.ok(slow.spec.speedSeconds > base.spec.speedSeconds, 'Ausgiebig muss länger arbeiten als Turbo');
+  assert.ok(slow.spec.polishPasses > base.spec.polishPasses, 'Ausgiebig braucht mehr Zusatzpässe');
+
+  const fastProject = generateProject(base.spec);
+  const slowProject = generateProject(slow.spec);
+  assert.ok(
+    slowProject.stats.parts > fastProject.stats.parts,
+    `Zusatzpässe müssen echte Bauteile erzeugen (${fastProject.stats.parts} vs ${slowProject.stats.parts})`,
+  );
+  assertWellFormedXml(serializeRbxlx(slowProject.services));
+  assert.ok(validateBuild(slowProject, slow.spec).score >= 80, 'Ausgiebiges Spiel muss die Prüfung bestehen');
 });
