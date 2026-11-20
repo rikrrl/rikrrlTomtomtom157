@@ -24,6 +24,7 @@ import {
   seasonPassServiceModule, dialogueServiceModule, MORE_SYSTEM_IDS,
 } from './systems-more.js';
 import { buildFeatureWorld } from './features.js';
+import { THEMES, shuffleBySeed } from '../ai/themes.js';
 import { treeStats } from './rbxlx.js';
 
 export const GENRES = {
@@ -158,10 +159,13 @@ export function buildGameConfig(spec) {
   const quality = qualityProfile(spec);
   const petCount = Math.max(3, Math.min(10, spec.features.pets ? (spec.petCount || 6) : 4));
 
-  const petNames = [
+  const basePets = [
     'Funkelkatze', 'Steinwächter', 'Glutwelpe', 'Nebelgeist', 'Kristalldrache',
     'Schattenfuchs', 'Wolkenbär', 'Lavafalke', 'Eiskobold', 'Sternenluchs',
   ];
+  const themePets = theme.pets || [];
+  const petPool = [...themePets, ...basePets.filter((n) => !themePets.includes(n))];
+  const petNames = shuffleBySeed(petPool, (spec.seed || 1) ^ 0x51ed);
   const elements = ['Funke', 'Stein', 'Glut', 'Nebel', 'Kristall', 'Schatten', 'Wolke', 'Lava', 'Eis', 'Stern'];
   const abilities = ['Doppelter Coin-Fund', 'Schneller laufen', 'Automatisch sammeln', 'Bonus-Erfahrung', 'Seltene Funde', 'Extra-Sprung', 'Schutzschild', 'Zeit-Boost', 'Glücksbonus', 'Ketten-Multiplikator'];
   const pets = [];
@@ -183,8 +187,19 @@ export function buildGameConfig(spec) {
     });
   }
 
-  const zoneNames = genre.zoneNames.slice(0, Math.max(3, Math.min(8, spec.zoneCount || 5)));
-  const shopNames = genre.buildingNames.slice(0, Math.max(2, Math.min(7, spec.shopCount || 4)));
+  const theme = THEMES[spec.themeKey] || THEMES.default;
+  const zoneSource = Array.isArray(spec.zoneNames) && spec.zoneNames.length >= 2 ? spec.zoneNames : genre.zoneNames;
+  const zoneNames = zoneSource.slice(0, Math.max(3, Math.min(8, spec.zoneCount || 5)));
+  // Shop-Namen aus dem Prompt ableiten: "Angeln" wird zu "Angel-Shop".
+  const stemWord = (w) => (w.length > 5 ? w.replace(/(en|n|e)$/, '') : w);
+  const genericWords = ['pets', 'coins', 'shops', 'geld', 'quests', 'npcs', 'spiel', 'welt', 'map'];
+  const promptShops = (spec.keywords || [])
+    .filter((w) => !genericWords.includes(w))
+    .slice(0, 6)
+    .map((w) => `${stemWord(w).charAt(0).toUpperCase()}${stemWord(w).slice(1)}-Shop`);
+  const shopNames = [...promptShops, ...genre.buildingNames]
+    .filter((name, index, all) => all.indexOf(name) === index)
+    .slice(0, Math.max(2, Math.min(7, spec.shopCount || 4)));
 
   const itemKinds = [
     { kind: 'upgrade', label: 'Upgrade', description: 'Erhöht deinen Coin-Multiplikator dauerhaft.' },
@@ -304,10 +319,12 @@ export function buildGameConfig(spec) {
     },
   ];
 
-  const npcNames = [
+  const baseNpcs = [
     'Händler Miro', 'Wächterin Lya', 'Alter Weiser', 'Schmied Toran', 'Forscherin Neva',
     'Buchhändlerin Rilla', 'Kapitän Boro', 'Sternendeuterin Vela',
   ];
+  const themeNpcs = theme.npcs || [];
+  const npcNames = shuffleBySeed([...themeNpcs, ...baseNpcs], (spec.seed || 1) ^ 0x7f3a);
   const npcDialogs = [
     'Willkommen! Sammle Coins und kaufe dir bessere Upgrades.',
     'Der nächste Bereich ist gefährlich. Sei vorbereitet!',
@@ -774,7 +791,7 @@ function buildZone(zone, palette, rng, index, detail) {
 export function generateProject(spec) {
   const rng = mulberry32((spec.seed || hashSeed(spec.title || 'game')) ^ 0x9e3779b9);
   const genre = GENRES[spec.genre] || GENRES.simulator;
-  const palette = { ...genre.palette, ...(spec.palette || {}) };
+  const palette = { ...genre.palette, ...theme.palette, ...(spec.palette || {}) };
   const mapInfo = MAP_SIZES[spec.mapSize] || MAP_SIZES.mittel;
   const quality = qualityProfile(spec);
   const half = mapInfo.half;
