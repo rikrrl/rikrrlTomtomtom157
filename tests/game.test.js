@@ -323,14 +323,14 @@ test('Eigene Zonen aus dem Text landen in der Map', () => {
 test('Chat-Anweisungen veraendern Welt, Zonen und Layout', () => {
   const base = analyzePrompt('Erstelle ein Simulator-Spiel mit Pets und Coins.').spec;
 
-  const themeResult = applyChatInstruction(structuredClone(base), 'Mach daraus ein Weltraum-Spiel');
+  const themeResult = applyChatInstruction('Mach daraus ein Weltraum-Spiel', { spec: structuredClone(base) });
   assert.equal(themeResult.spec.themeKey, 'weltraum');
   assert.ok(themeResult.changes.some((c) => /Weltraum/.test(c)), 'Aenderung muss benannt werden');
 
-  const zoneResult = applyChatInstruction(structuredClone(base), 'Zonen: Wald, Strand, Hoehle');
+  const zoneResult = applyChatInstruction('Zonen: Wald, Strand, Hoehle', { spec: structuredClone(base) });
   assert.deepEqual(zoneResult.spec.zoneNames.slice(0, 3), ['Wald', 'Strand', 'Hoehle']);
   assert.equal(zoneResult.spec.zoneCount, 3);
 
-  const layoutResult = applyChatInstruction(structuredClone(base), 'Aendere das Layout der Karte');
+  const layoutResult = applyChatInstruction('Aendere das Layout der Karte', { spec: structuredClone(base) });
   assert.notEqual(layoutResult.spec.layout, base.layout, 'Layout muss wechseln');
 });
