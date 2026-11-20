@@ -188,7 +188,6 @@ export function buildGameConfig(spec) {
     });
   }
 
-  const theme = THEMES[spec.themeKey] || THEMES.default;
   const zoneSource = Array.isArray(spec.zoneNames) && spec.zoneNames.length >= 2 ? spec.zoneNames : genre.zoneNames;
   const zoneNames = zoneSource.slice(0, Math.max(3, Math.min(8, spec.zoneCount || 5)));
   // Shop-Namen aus dem Prompt ableiten: "Angeln" wird zu "Angel-Shop".
