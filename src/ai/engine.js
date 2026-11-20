@@ -470,6 +470,36 @@ export function applyChatInstruction(message, project) {
     spec.genre = genreHit.genre;
   }
 
+  // Welt/Theme wechseln: "mach ein Eis-Spiel", "Weltraum", "Dschungel"
+  const themeHit = detectTheme(message);
+  const wantsTheme = /(thema|welt|setting|schauplatz|mach|mache|änder|aendere|statt|umbauen|umstellen|wechsel)/.test(text);
+  if (themeHit !== 'default' && themeHit !== spec.themeKey && wantsTheme) {
+    const nextTheme = THEMES[themeHit];
+    spec.themeKey = themeHit;
+    spec.themeLabel = nextTheme.label;
+    spec.terrain = nextTheme.terrain;
+    spec.palette = { ...spec.palette, ...themePalette(themeHit) };
+    spec.zoneNames = zoneNamesFor(themeHit, (GENRES[spec.genre] || GENRES.simulator).zoneNames, spec.seed || 1, spec.zoneCount || 5);
+    spec.seed = (spec.seed || 1) + 5;
+    changes.push(`Welt: ${nextTheme.label} – neue Zonen (${spec.zoneNames.slice(0, 4).join(', ')}), Boden ${nextTheme.terrain}, eigene Deko`);
+  }
+
+  // Zonen umbenennen: "Zonen: Wald, Strand, Höhle"
+  const namedZones = explicitZoneNames(message);
+  if (namedZones.length >= 2 && /(zone|zonen|gebiet|gebiete|insel|inseln|benenn|nenne|umbenennen)/i.test(text)) {
+    spec.zoneNames = namedZones;
+    spec.zoneCount = Math.max(2, Math.min(8, namedZones.length));
+    changes.push(`Zonen aus deiner Anweisung: ${namedZones.join(', ')}`);
+  }
+
+  // Andere Anordnung der Karte
+  if (/(layout|anordnung|anordnen|aufbau der karte|karte umstellen)/.test(text)) {
+    const layouts = ['ring', 'line', 'spiral', 'grid', 'cluster'];
+    const currentIndex = Math.max(0, layouts.indexOf(spec.layout || 'ring'));
+    spec.layout = layouts[(currentIndex + 1) % layouts.length];
+    changes.push(`Karten-Layout: ${spec.layout}`);
+  }
+
   // Features hinzufügen / entfernen
   const wantsRemove = /(entferne|entfern|ohne|keine|kein|remove|weniger|loesche|lösche)/.test(text);
   for (const [feature, words] of Object.entries(FEATURE_KEYWORDS)) {
