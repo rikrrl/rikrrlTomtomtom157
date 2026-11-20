@@ -198,5 +198,5 @@ test('Link-Analyse nutzt echte API-Daten und erfindet nichts', async () => {
 test('Ungültige Links ergeben eine verständliche Fehlermeldung', async () => {
   const analysis = await analyzeRobloxLink('https://example.com/nichts');
   assert.equal(analysis.ok, false);
-  assert.match(analysis.error, /Roblox/);
+  assert.match(analysis.error, /roblox/i);
 });

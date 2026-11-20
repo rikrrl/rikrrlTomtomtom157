@@ -201,7 +201,7 @@ export function analyzePrompt(text, options = {}) {
     zoneCount: Math.max(2, Math.min(6, zoneHint || (mapSize === 'riesig' ? 6 : mapSize === 'groß' ? 5 : 4))),
     shopCount: Math.max(2, Math.min(5, shopHint || (features.shops ? 3 : 2))),
     npcCount: Math.max(2, Math.min(5, npcHint || (features.npcs ? 4 : 3))),
-    petCount: Math.max(3, Math.min(8, petHint || 5)),
+    petCount: features.pets ? Math.max(6, Math.min(8, petHint || 6)) : Math.max(2, Math.min(4, petHint || 3)),
     difficulty: /schwer|hard|brutal|schwierig/.test(normalise(raw)) ? 'schwer'
       : /leicht|easy|entspannt|chill/.test(normalise(raw)) ? 'leicht' : 'normal',
     theme: raw.slice(0, 120),

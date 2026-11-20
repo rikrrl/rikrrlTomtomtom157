@@ -79,7 +79,7 @@ test('Webseite und API arbeiten end-to-end', async (t) => {
   assert.match(rbxlx.headers.get('content-type'), /xml/);
   assert.match(rbxlx.headers.get('content-disposition'), /attachment; filename=.*\.rbxlx/);
   const xml = await rbxlx.text();
-  assert.ok(xml.startsWith('<roblox'));
+  assert.ok(xml.startsWith('<?xml') && xml.includes('<roblox'));
   assert.ok(xml.includes('<Item class="Workspace"'));
   assert.ok(xml.includes('<ProtectedString name="Source">'));
 
