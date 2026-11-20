@@ -364,7 +364,7 @@ function renderProject() {
             <div class="report-grid">
               <div><span>Spieltiefe</span><strong>${esc(project.report.qualityLabel)}</strong></div>
               <div><span>Tempo</span><strong>${esc(project.report.speedLabel)}</strong></div>
-              <div><span>Durchläufe</span><strong>${project.report.passes}${project.report.polishPasses ? ` (+${project.report.polishPasses} Zusatzpässe)` : ''}</strong></div>
+              <div><span>Durchläufe</span><strong>${project.report.passes}${project.report.polishPasses ? ` (+${project.report.polishPasses} ${project.report.polishPasses === 1 ? 'Zusatzpass' : 'Zusatzpässe'})` : ''}</strong></div>
               <div><span>Arbeitszeit</span><strong>${project.report.workSeconds} s</strong></div>
               <div><span>Bauteile</span><strong>${fmt(project.report.parts)}</strong></div>
               <div><span>Instanzen</span><strong>${fmt(project.report.instances)}</strong></div>

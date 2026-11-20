@@ -56,6 +56,7 @@ function stagePlanFor(quality, speed) {
       label: `Zusatz-Feinschliff-Pass ${i + 1} (Marktstände, Deko, Coin-Spots, NPCs)`,
       weight: 2,
       pass: true,
+      extra: true,
     });
   }
   const totalWeight = stages.reduce((sum, stage) => sum + stage.weight, 0);
@@ -65,6 +66,7 @@ function stagePlanFor(quality, speed) {
     label: stage.label,
     status: 'pending',
     pass: Boolean(stage.pass),
+    extra: Boolean(stage.extra),
     ms: Math.max(40, Math.round((stage.weight / totalWeight) * totalMs)),
   }));
 }
@@ -128,8 +130,8 @@ async function runBuild(project) {
       qualityLabel: project.spec.qualityLabel || resolveQuality(project.spec.quality).label,
       speed: project.spec.speed || 'normal',
       speedLabel: project.spec.speedLabel || resolveSpeed(project.spec.speed).label,
-      passes: project.spec.passes || resolveQuality(project.spec.quality).passes,
-      polishPasses: project.spec.polishPasses || 0,
+      passes: project.stages.length,
+      polishPasses: resolveSpeed(project.spec.speed).extraPasses,
       parts: project.stats.parts,
       instances: project.stats.instances,
       scripts: (project.scripts || []).length,
@@ -247,7 +249,10 @@ app.post('/api/projects', async (req, res) => {
         `Ich habe "${spec.title}" erzeugt.\n` +
         `Genre: ${understanding.genreLabel}, Map: ${spec.mapSize} mit ${spec.zoneCount} Zonen.\n` +
         `${project.stats.parts} Bauteile, ${project.stats.instances} Instanzen, ${project.stats.scriptLines} Zeilen Luau, ${(project.systems || []).length} aktive Systeme.\n` +
-        `Spieltiefe: ${spec.qualityLabel} (${(project.systems || []).length} aktive Systeme) · Tempo: ${spec.speedLabel} (${spec.polishPasses || 0} Zusatzpässe) · Qualitätsprüfung ${project.validation ? project.validation.score : 0}/100.\n\n` +
+        `Spieltiefe: ${spec.qualityLabel} (${(project.systems || []).length} aktive Systeme) · Tempo: ${spec.speedLabel} (${(() => {
+          const extra = resolveSpeed(spec.speed).extraPasses;
+          return `${extra} ${extra === 1 ? 'Zusatzpass' : 'Zusatzpässe'}`;
+        })()}) · Qualitätsprüfung ${project.validation ? project.validation.score : 0}/100.\n\n` +
         'Du kannst jetzt als .rbxlx exportieren oder mir Änderungen sagen – ich bearbeite dasselbe Projekt weiter.',
     });
     saveProject(project);
