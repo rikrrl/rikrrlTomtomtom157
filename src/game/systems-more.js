@@ -257,7 +257,7 @@ Players.PlayerAdded:Connect(function(player)
 	craftResult:FireClient(player, { ok = true, message = "Rezepte geladen", recipes = describe(player) })
 end)
 
-print("[CraftingService] ${RECIPES_HINT} Rezepte aktiv".gsub and "" or "")
+print("[CraftingService] " .. tostring(#RECIPES) .. " Rezepte aktiv")
 `;
 }
 
