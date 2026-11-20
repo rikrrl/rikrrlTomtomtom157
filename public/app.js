@@ -8,14 +8,33 @@ const state = {
   draftPrompt: '',
   draftUrl: '',
   linkInfo: '',
-  quality: 'grundlich',
+  quality: 'hoch',
+  speed: 'normal',
 };
 
+/** Spieltiefe: bestimmt Umfang, Systeme und Detaildichte. */
 const QUALITY_OPTIONS = [
-  { id: 'schnell', label: 'Schnell', note: '~1 s · 3 Systeme' },
-  { id: 'grundlich', label: 'Gründlich', note: '~5 s · 6 Systeme' },
-  { id: 'maximal', label: 'Maximal', note: '~12 s · 9 Systeme' },
+  { id: 'basis', label: 'Basis', note: '4 Zonen · 5 Systeme', zones: 4, systems: 5, passes: 1 },
+  { id: 'hoch', label: 'Hoch', note: '6 Zonen · 7 Systeme', zones: 6, systems: 7, passes: 2 },
+  { id: 'profi', label: 'Profi', note: '8 Zonen · 9 Systeme', zones: 8, systems: 9, passes: 3 },
+  { id: 'meister', label: 'Meister', note: '8 Zonen · 11 Systeme', zones: 8, systems: 11, passes: 4 },
 ];
+
+/** Tempo: bestimmt Arbeitszeit und Zahl der echten Zusatzpässe. */
+const SPEED_OPTIONS = [
+  { id: 'turbo', label: 'Turbo', note: '~2 s · sofort', seconds: 2, passes: 0 },
+  { id: 'normal', label: 'Normal', note: '~5 s', seconds: 5, passes: 0 },
+  { id: 'gemuetlich', label: 'Gemütlich', note: '~10 s · 1 Zusatzpass', seconds: 10, passes: 1 },
+  { id: 'ausgiebig', label: 'Lass dir Zeit', note: '~16 s · 2 Zusatzpässe', seconds: 16, passes: 2 },
+];
+
+/** Kurze Vorschau: was die gewählte Kombination bedeutet. */
+function buildPreview() {
+  const quality = QUALITY_OPTIONS.find((option) => option.id === state.quality) || QUALITY_OPTIONS[1];
+  const speed = SPEED_OPTIONS.find((option) => option.id === state.speed) || SPEED_OPTIONS[1];
+  const runs = quality.passes + speed.passes;
+  return `${quality.label} + ${speed.label}: ca. ${speed.seconds} s Arbeitszeit, bis zu ${quality.zones} Zonen und ${quality.systems} Systeme, ${runs} Durchläufe${speed.passes ? ` inkl. ${speed.passes} Zusatzpässen` : ''}.`;
+}
 
 const EXAMPLES = [
   'Erstelle ein Simulator-Spiel mit Pets, Coins, Shops und einer großen Map.',
@@ -138,12 +157,20 @@ function renderHome() {
           ${EXAMPLES.map((example) => `<button class="chip" data-example="${esc(example)}">${esc(example.split(' ').slice(0, 4).join(' '))}…</button>`).join('')}
         </div>
         <div class="quality-picker" id="quality-picker">
-          <span class="qp-label">Qualität</span>
+          <span class="qp-label">Spieltiefe</span>
           ${QUALITY_OPTIONS.map((option) => `
             <button class="qp-btn ${state.quality === option.id ? 'active' : ''}" data-quality="${option.id}">
               <strong>${option.label}</strong><span>${option.note}</span>
             </button>`).join('')}
         </div>
+        <div class="quality-picker" id="speed-picker">
+          <span class="qp-label">Tempo</span>
+          ${SPEED_OPTIONS.map((option) => `
+            <button class="qp-btn ${state.speed === option.id ? 'active' : ''}" data-speed="${option.id}">
+              <strong>${option.label}</strong><span>${option.note}</span>
+            </button>`).join('')}
+        </div>
+        <p class="qp-preview">${esc(buildPreview())}</p>
         <div class="btn-row">
           <button class="btn" id="create-prompt" ${state.busy ? 'disabled' : ''}>Spiel erstellen</button>
           <span class="hint">${state.busy ? 'Die KI arbeitet die Phasen durch …' : 'Die KI lässt sich Zeit und prüft ihr Ergebnis'}</span>
@@ -184,6 +211,12 @@ function renderHome() {
   document.querySelectorAll('[data-quality]').forEach((button) => {
     button.addEventListener('click', () => {
       state.quality = button.dataset.quality;
+      renderHome();
+    });
+  });
+  document.querySelectorAll('[data-speed]').forEach((button) => {
+    button.addEventListener('click', () => {
+      state.speed = button.dataset.speed;
       renderHome();
     });
   });
@@ -299,7 +332,8 @@ function renderProject() {
           <span class="tag">Version ${esc(project.version)}</span>
           <span class="tag">${esc(project.spec?.mapSize || 'mittel')}e Map</span>
           <span class="tag">${esc(project.zoneCount || project.spec?.zoneCount || 0)} Zonen</span>
-          <span class="tag purple">${esc(project.spec?.qualityLabel || 'Gründlich')}</span>
+          <span class="tag purple">${esc(project.spec?.qualityLabel || 'Hoch')}</span>
+          <span class="tag">${esc(project.spec?.speedLabel || 'Normal')}</span>
           <span class="tag">${esc(project.source?.type === 'link' ? 'Nachbau' : 'Beschreibung')}</span>
         </div>
       </div>
@@ -324,6 +358,21 @@ function renderProject() {
                 <span class="s-ms">${stage.ms ? `${(stage.ms / 1000).toFixed(1)}s` : ''}</span>
               </div>`).join('')}
           </div>
+          ${project.report ? `
+            <div class="divider"></div>
+            <div class="section-title">Ergebnis der KI-Arbeit</div>
+            <div class="report-grid">
+              <div><span>Spieltiefe</span><strong>${esc(project.report.qualityLabel)}</strong></div>
+              <div><span>Tempo</span><strong>${esc(project.report.speedLabel)}</strong></div>
+              <div><span>Durchläufe</span><strong>${project.report.passes}${project.report.polishPasses ? ` (+${project.report.polishPasses} Zusatzpässe)` : ''}</strong></div>
+              <div><span>Arbeitszeit</span><strong>${project.report.workSeconds} s</strong></div>
+              <div><span>Bauteile</span><strong>${fmt(project.report.parts)}</strong></div>
+              <div><span>Instanzen</span><strong>${fmt(project.report.instances)}</strong></div>
+              <div><span>Luau-Zeilen</span><strong>${fmt(project.report.scriptLines)}</strong></div>
+              <div><span>Zonen</span><strong>${project.report.zones}</strong></div>
+              <div><span>Systeme</span><strong>${project.report.systems}</strong></div>
+              <div><span>Prüfung</span><strong>${project.report.score}/100</strong></div>
+            </div>` : ''}
           ${project.validation ? `
             <div class="divider"></div>
             <div class="progress-label"><span>Qualitätsprüfung der KI</span><span>${project.validation.score}/100</span></div>
@@ -483,7 +532,7 @@ async function createFromPrompt() {
   state.busy = true;
   render();
   try {
-    const data = await api('/api/projects', { method: 'POST', body: { mode: 'prompt', prompt, quality: state.quality } });
+    const data = await api('/api/projects', { method: 'POST', body: { mode: 'prompt', prompt, quality: state.quality, speed: state.speed } });
     state.current = data.project;
     state.view = 'project';
     state.draftPrompt = '';
@@ -528,7 +577,7 @@ async function createFromLink() {
   state.busy = true;
   render();
   try {
-    const data = await api('/api/projects', { method: 'POST', body: { mode: 'link', url, quality: state.quality } });
+    const data = await api('/api/projects', { method: 'POST', body: { mode: 'link', url, quality: state.quality, speed: state.speed } });
     state.current = data.project;
     state.view = 'project';
     state.draftUrl = '';
