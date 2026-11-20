@@ -408,3 +408,11 @@ textarea::placeholder, input::placeholder { color: var(--muted-2); }
   .topbar { padding: 12px 16px; }
   .quality-picker { grid-template-columns: 1fr; }
 }
+
+/* Zwei Regler (Spieltiefe + Tempo) und Ergebnisbericht */
+.quality-picker { flex-wrap: wrap; }
+.qp-preview { font-size: 12px; color: #b9b3dd; margin: 6px 0 0; line-height: 1.5; }
+.report-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 8px; margin-top: 8px; }
+.report-grid > div { background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(140, 120, 255, 0.18); border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; }
+.report-grid span { font-size: 11px; color: #a9a4c9; text-transform: uppercase; letter-spacing: 0.04em; }
+.report-grid strong { font-size: 15px; color: #f2efff; }
