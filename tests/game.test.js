@@ -78,7 +78,7 @@ test('Alle Genres erzeugen exportierbares XML', () => {
     const { spec } = analyzePrompt(`Erstelle ein ${genre} Spiel mit Map und Shops`);
     const project = generateProject(spec);
     const xml = serializeRbxlx(project.services);
-    assert.ok(xml.startsWith('<roblox'), `${genre}: XML-Kopf fehlt`);
+    assert.ok(xml.startsWith('<?xml') && xml.includes('<roblox'), `${genre}: XML-Kopf fehlt`);
     assert.ok(xml.includes('<Item class="Workspace"'), `${genre}: Workspace fehlt`);
     assertWellFormedXml(xml);
   }
@@ -109,7 +109,7 @@ test('Chat bearbeitet das bestehende Projekt inkrementell', () => {
   assert.notEqual(before.stats.parts, after.stats.parts);
 
   const color = applyChatInstruction('Bitte in Pink und Lila', { spec: more.spec, title: more.spec.title });
-  assert.match(JSON.stringify(color.spec.palette), /#|rgb/i);
+  assert.notDeepEqual(color.spec.palette.accent2, more.spec.palette.accent2, 'Farbe sollte sich geändert haben');
   assert.ok(color.changes.length >= 1);
 
   const genre = applyChatInstruction('Mach ein Horror-Spiel daraus', { spec: color.spec, title: color.spec.title });
@@ -137,11 +137,11 @@ test('Roblox-Links werden korrekt geparst', () => {
   ];
   for (const [url, placeId] of cases) {
     const parsed = parseRobloxUrl(url);
-    assert.ok(parsed, `Link nicht erkannt: ${url}`);
+    assert.equal(parsed.ok, true, `Link nicht erkannt: ${url}`);
     assert.equal(parsed.placeId, placeId, `Falsche Place-ID für ${url}`);
   }
-  assert.equal(parseRobloxUrl('https://example.com/spiel'), null);
-  assert.equal(parseRobloxUrl(''), null);
+  assert.equal(parseRobloxUrl('https://example.com/spiel').ok, false);
+  assert.equal(parseRobloxUrl('').ok, false);
 });
 
 test('Link-Analyse nutzt echte API-Daten und erfindet nichts', async () => {
@@ -171,6 +171,9 @@ test('Link-Analyse nutzt echte API-Daten und erfindet nichts', async () => {
     }
     if (String(url).includes('/votes')) {
       return respond({ data: { upVotes: 100, downVotes: 5 } });
+    }
+    if (String(url).includes('/universes/v1/places/')) {
+      return respond({ universeId: 920587237 });
     }
     return respond({});
   };
