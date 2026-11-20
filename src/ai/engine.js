@@ -408,7 +408,7 @@ export function analyzePrompt(text, options = {}) {
     difficulty: /schwer|hard|brutal|schwierig/.test(normalise(raw)) ? 'schwer'
       : /leicht|easy|entspannt|chill/.test(normalise(raw)) ? 'leicht' : 'normal',
     theme: raw.slice(0, 120),
-    palette: themePalette(themeKey, colors),
+    palette: { ...basePalette(colors), ...themePalette(themeKey, colors) },
     source: { type: 'prompt', text: raw },
   };
 
