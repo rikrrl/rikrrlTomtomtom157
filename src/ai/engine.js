@@ -6,6 +6,11 @@
 import { GENRES } from '../game/generator.js';
 
 const GENRE_KEYWORDS = {
+  fishing: ['angel', 'angeln', 'fisch', 'fische', 'fischen', 'fishing'],
+  crafting: ['crafting', 'craften', 'basteln', 'rezept', 'rezepte', 'werkbank'],
+  guilds: ['gilde', 'gilden', 'guild', 'clan', 'clans'],
+  seasonpass: ['season pass', 'seasonpass', 'saisonpass', 'battle pass', 'season'],
+  dialogue: ['dialog', 'dialoge', 'gespraech', 'reden', 'sprechende npc'],
   simulator: ['simulator', 'simulation', 'farm', 'clicker', 'geld verdienen', 'coins sammeln', 'grind', 'tycoon-simulator'],
   tycoon: ['tycoon', 'fabrik', 'factory', 'business', 'firma', 'imperium', 'wirtschaft', 'produktion', 'lager'],
   horror: ['horror', 'grusel', 'spuk', 'monster', 'angst', 'scary', 'dark', 'nacht', 'verlassen', 'zombie', 'slender'],
