@@ -313,6 +313,8 @@ test('Verschiedene Beschreibungen ergeben verschiedene Spiele, gleicher Text ble
 test('Eigene Zonen aus dem Text landen in der Map', () => {
   const spec = analyzePrompt('Horror-Spiel in einem verlassenen Krankenhaus mit Zonen: Keller, OP-Saal, Dachboden').spec;
   assert.equal(spec.genre, 'horror');
+  assert.equal(spec.themeKey, 'horror', 'Krankenhaus-Horror muss als Horror-Thema erkannt werden');
+  assert.ok(/krankenhaus|keller/i.test(spec.title), 'Titel muss aus dem Text kommen: ' + spec.title);
   assert.deepEqual(spec.zoneNames.slice(0, 3), ['Keller', 'OP-Saal', 'Dachboden']);
   const project = generateProject(spec);
   const xml = serializeRbxlx(project.services);
