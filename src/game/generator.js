@@ -737,10 +737,101 @@ function buildLeaderboard(pos, palette) {
   ]);
 }
 
-function buildZone(zone, palette, rng, index, detail) {
+/**
+ * Platziert Zonen je nach Layout (Ring, Linie, Spirale, Raster, Cluster).
+ * Dadurch sieht keine zwei Spiele gleich aus, auch bei gleicher Zonen-Zahl.
+ */
+function placeZones(layout, count, half, rng) {
+  const maxRadius = Math.max(60, half * 0.62);
+  const lineGap = Math.min(104, (half * 1.55) / Math.max(1, count - 1));
+  const placements = [];
+  for (let i = 0; i < count; i++) {
+    let cx = 0;
+    let cz = 0;
+    let size = 78;
+    if (i === 0) {
+      size = 96;
+      cz = -Math.min(90, half * 0.45);
+    } else if (layout === 'line') {
+      cx = (i - (count - 1) / 2) * lineGap;
+      cz = 0;
+      size = 74;
+    } else if (layout === 'grid') {
+      const cols = Math.max(2, Math.ceil(Math.sqrt(count - 1)));
+      const gap = Math.min(104, (half * 1.5) / Math.max(1, cols));
+      const col = (i - 1) % cols;
+      const row = Math.floor((i - 1) / cols);
+      cx = (col - (cols - 1) / 2) * gap;
+      cz = (row - 0.4) * gap;
+      size = 74;
+    } else if (layout === 'spiral') {
+      const t = i / Math.max(1, count - 1);
+      const angle = t * Math.PI * 2.2;
+      const radius = maxRadius * (0.42 + t * 0.58);
+      cx = Math.cos(angle) * radius;
+      cz = Math.sin(angle) * radius;
+      size = 76;
+    } else if (layout === 'cluster') {
+      const angle = rng() * Math.PI * 2;
+      const radius = maxRadius * (0.55 + rng() * 0.4);
+      cx = Math.cos(angle) * radius;
+      cz = Math.sin(angle) * radius;
+      size = 72 + Math.round(rng() * 10);
+    } else {
+      const angle = (i / count) * Math.PI * 2 - Math.PI / 2;
+      cx = Math.cos(angle) * maxRadius * 0.9;
+      cz = Math.sin(angle) * maxRadius * 0.9;
+      size = 78;
+    }
+    placements.push({ cx: Math.round(cx), cz: Math.round(cz), size });
+  }
+  return placements;
+}
+
+/** Deko passend zum Thema: Eissäulen, Lavafelsen, Kristalle, Fässer, Datenpylonen, Kakteen, Korallen, Bonbonstangen. */
+function buildThemeProp(kind, pos, rng, palette) {
+  const props = [];
+  switch (kind) {
+    case 'snow':
+      props.push(part({ name: 'IceBase', pos: [0, 0.6, 0], size: [7, 1.2, 7], color: [240, 250, 255], material: 'glass', transparency: 0.35 }));
+      props.push(part({ name: 'IceSpike', pos: [0, 4, 0], size: [4, 8, 4], color: [214, 238, 255], material: 'ice', shape: 'ball', transparency: 0.1 }));
+      break;
+    case 'lava':
+      props.push(part({ name: 'LavaRock', pos: [0, 2, 0], size: [6, 4, 6], color: [58, 26, 22], material: 'slate', shape: 'ball' }));
+      props.push(part({ name: 'LavaGlow', pos: [0, 4.4, 0], size: [3, 0.6, 3], color: [255, 120, 40], material: 'neon', transparency: 0.2, children: [pointLight('LavaLight', [255, 130, 50], 2, 16)] }));
+      break;
+    case 'space':
+      props.push(part({ name: 'Crystal', pos: [0, 3.5, 0], size: [2.4, 7, 2.4], color: [180, 150, 255], material: 'glass', shape: 'cylinder', transparency: 0.15, children: [pointLight('CrystalGlow', [170, 140, 255], 2, 18)] }));
+      break;
+    case 'medieval':
+      props.push(part({ name: 'Barrel', pos: [0, 1.6, 0], size: [3, 3.2, 3], color: [120, 84, 48], material: 'wood', shape: 'cylinder' }));
+      props.push(part({ name: 'Crate', pos: [3.4, 1.2, 1], size: [2.6, 2.4, 2.6], color: [140, 100, 58], material: 'wood' }));
+      break;
+    case 'cyber':
+      props.push(part({ name: 'DataPylon', pos: [0, 5, 0], size: [2, 10, 2], color: [24, 26, 40], material: 'metal', children: [part({ name: 'PylonNeon', pos: [0, 5.4, 0], size: [2.4, 0.6, 2.4], color: palette.accent, material: 'neon', transparency: 0.1 })] }));
+      break;
+    case 'desert':
+      props.push(part({ name: 'Cactus', pos: [0, 3, 0], size: [2.2, 6, 2.2], color: [86, 140, 72], material: 'grass', shape: 'cylinder' }));
+      props.push(part({ name: 'CactusArm', pos: [1.8, 4, 0], size: [2.4, 1.4, 1.4], color: [86, 140, 72], material: 'grass', shape: 'cylinder' }));
+      break;
+    case 'ocean':
+      props.push(part({ name: 'Coral', pos: [0, 2, 0], size: [3, 4, 3], color: [255, 120, 160], material: 'neon', shape: 'ball', transparency: 0.2 }));
+      props.push(part({ name: 'Shell', pos: [3.2, 1, 1], size: [2, 1, 2], color: [255, 220, 190], material: 'concrete', shape: 'ball' }));
+      break;
+    case 'candy':
+      props.push(part({ name: 'CandyPole', pos: [0, 3.5, 0], size: [1.6, 7, 1.6], color: [255, 170, 210], material: 'neon', shape: 'cylinder' }));
+      props.push(part({ name: 'CandyTop', pos: [0, 7.4, 0], size: [3.4, 1.2, 3.4], color: [255, 240, 250], material: 'glass', shape: 'ball', transparency: 0.2 }));
+      break;
+    default:
+      props.push(buildRock([0, 0, 0], rng, palette));
+  }
+  return model(`Theme_${kind}`, translate(props, pos));
+}
+
+function buildZone(zone, palette, rng, index, detail, theme) {
   const [cx, cz] = zone.center;
   const children = [
-    part({ name: 'ZoneFloor', pos: [cx, 0.6, cz], size: [zone.size, 1, zone.size], color: shade(palette.ground, 0.85 + rng() * 0.2), material: 'grass' }),
+    part({ name: 'ZoneFloor', pos: [cx, 0.6, cz], size: [zone.size, 1, zone.size], color: shade(palette.ground, 0.85 + rng() * 0.2), material: (theme && theme.terrain) || 'grass' }),
     part({ name: 'ZoneTrim', pos: [cx, 1.3, cz - zone.size / 2 + 2], size: [zone.size, 0.4, 1], color: palette.accent, material: 'neon' }),
     part({ name: 'ZoneTrimBack', pos: [cx, 1.3, cz + zone.size / 2 - 2], size: [zone.size, 0.4, 1], color: palette.accent, material: 'neon' }),
     part({ name: 'ZonePad', pos: [cx, 1.1, cz], size: [zone.size * 0.5, 0.3, zone.size * 0.5], color: shade(palette.base, 1.1), material: 'cobblestone' }),
@@ -773,7 +864,9 @@ function buildZone(zone, palette, rng, index, detail) {
     const px = cx + Math.cos(angle) * radius;
     const pz = cz + Math.sin(angle) * radius;
     const roll = rng();
-    if (roll > 0.72) decor.push(buildLamp([px, 0.6, pz], palette));
+    if (theme && theme.decor && theme.decor !== 'standard' && roll > 0.45) {
+      decor.push(buildThemeProp(theme.decor, [px, 0.6, pz], rng, palette));
+    } else if (roll > 0.72) decor.push(buildLamp([px, 0.6, pz], palette));
     else if (roll > 0.5) decor.push(buildFlowers([px, 0.6, pz], rng, palette));
     else if (roll > 0.34) decor.push(buildBench([px, 0.6, pz], palette));
     else if (roll > 0.2) decor.push(buildRock([px, 0.6, pz], rng, palette));
@@ -801,14 +894,17 @@ export function generateProject(spec) {
   const zoneCount = Math.max(2, Math.min(8, spec.zoneCount || mapInfo.zones));
   const shopZones = Math.max(1, Math.min(zoneCount, config.shops.length));
   const zoneRadius = half * 0.55;
+  const zoneNames = Array.isArray(spec.zoneNames) && spec.zoneNames.length >= 2 ? spec.zoneNames : genre.zoneNames;
+  const layout = spec.layout || 'ring';
+  const placements = placeZones(layout, zoneCount, half, rng);
 
   const wordPool = ['WORT', 'RÄTSEL', 'BUCHSTABE', 'SILBE', 'SPIEL', 'LEXIKON', 'VOKABEL', 'PUNKTE'];
   const zones = [];
   for (let i = 0; i < zoneCount; i++) {
-    const angle = (i / zoneCount) * Math.PI * 2 - Math.PI / 2;
-    const cx = i === 0 ? 0 : Math.cos(angle) * zoneRadius;
-    const cz = i === 0 ? -Math.min(90, half * 0.45) : Math.sin(angle) * zoneRadius;
-    const size = i === 0 ? 96 : 78;
+    const placement = placements[i] || placements[placements.length - 1];
+    const cx = placement.cx;
+    const cz = placement.cz;
+    const size = placement.size;
     const buildings = [];
     if (i < shopZones) {
       const shop = config.shops[i];
@@ -837,17 +933,17 @@ export function generateProject(spec) {
       ? [buildLetterBoard([0, 0, 0], wordPool[i % wordPool.length], palette)]
       : [];
     const stations = isWordGame
-      ? [buildPuzzleStation([0, 0, 0], palette, `${zoneLabel(genre, i)}-Rätsel`)]
+      ? [buildPuzzleStation([0, 0, 0], palette, `${zoneNames[i % zoneNames.length]}-Rätsel`)]
       : [];
     zones.push({
-      name: genre.zoneNames[i % genre.zoneNames.length],
+      name: zoneNames[i % zoneNames.length],
       center: [Math.round(cx), Math.round(cz)],
       size, buildings, npcs, boards, stations,
     });
   }
 
   const mapChildren = [
-    part({ name: 'Ground', pos: [0, 0, 0], size: [half * 2, 2, half * 2], color: palette.ground, material: 'grass' }),
+    part({ name: 'Ground', pos: [0, 0, 0], size: [half * 2, 2, half * 2], color: palette.ground, material: spec.terrain || 'grass' }),
     part({ name: 'UnderBase', pos: [0, -1.6, 0], size: [half * 2 + 40, 2, half * 2 + 40], color: shade(palette.ground, 0.6), material: 'slate' }),
     part({ name: 'PlazaRing', pos: [0, 1.2, 0], size: [52, 0.6, 52], color: palette.accent, material: 'neon', transparency: 0.25 }),
     part({ name: 'PlazaFloor', pos: [0, 1.5, 0], size: [48, 0.6, 48], color: shade(palette.base, 1.3), material: 'marble' }),
@@ -893,7 +989,7 @@ export function generateProject(spec) {
     }
   });
 
-  zones.forEach((zone, i) => mapChildren.push(buildZone(zone, palette, rng, i, quality.detail)));
+  zones.forEach((zone, i) => mapChildren.push(buildZone(zone, palette, rng, i, quality.detail, theme)));
 
   // Tore zu gesperrten Bereichen
   zones.slice(1).forEach((zone, i) => {
