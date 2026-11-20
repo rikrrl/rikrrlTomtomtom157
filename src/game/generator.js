@@ -7,7 +7,7 @@
  */
 
 import {
-  inst, part, folder, model, spawnLocation, pointLight,
+  inst, part, folder, model, spawnLocation, pointLight, translate,
   serverScript, localScript, moduleScript,
 } from './build.js';
 import {
@@ -384,7 +384,7 @@ function buildBuilding({ name, pos, size, palette, rotY = 0, accent, promptId, d
     part({ name: 'DoorFrame', pos: [0, 3.5, d / 2], size: [7, 7, 1.2], color: trimColor, material: 'metal' }),
     part({ name: 'Roof', pos: [0, h + 0.5, 0], size: [w + 2, 1, d + 2], color: accent, material: 'metal' }),
     part({ name: 'RoofTrim', pos: [0, h + 1.2, d / 2], size: [w + 3, 0.6, 1], color: accent, material: 'neon' }),
-    part({ name: 'Sign', pos: [0, h + 2.4, d / 2 - 0.4], size: [Math.min(w, 14), 3, 0.6], color: accent, material: 'neon', transparency: 0.05 }),
+    part({ name: 'Sign', pos: [0, h + 2.4, d / 2 - 0.4], size: [Math.min(w, 14), 3, 0.6], color: accent, material: 'neon', transparency: 0.05, children: [pointLight('ShopGlow', accent, 1.8, 26)] }),
     part({ name: 'Counter', pos: [0, 1.6, d / 2 - 3], size: [Math.min(w - 4, 8), 1.6, 2], color: shade(palette.base, 1.4), material: 'wood' }),
     part({ name: 'CounterTop', pos: [0, 2.5, d / 2 - 3], size: [Math.min(w - 4, 8.4), 0.3, 2.4], color: trimColor, material: 'marble' }),
     part({
@@ -416,7 +416,6 @@ function buildBuilding({ name, pos, size, palette, rotY = 0, accent, promptId, d
       part({ name: 'Awning', pos: [0, h - 0.6, d / 2 + 1.4], size: [w * 0.8, 0.3, 4], color: accent, material: 'fabric', rotY: 8 }),
       part({ name: 'CrateA', pos: [-w / 2 + 3, 1.4, -d / 2 + 4], size: [3, 2.4, 3], color: [138, 102, 68], material: 'wood' }),
       part({ name: 'CrateB', pos: [-w / 2 + 6.5, 1.1, -d / 2 + 4], size: [2.4, 1.8, 2.4], color: [120, 88, 58], material: 'wood', rotY: 18 }),
-      pointLight('ShopGlow', accent, 1.8, 26),
     );
   }
   return model(name.replace(/[^A-Za-z0-9_]/g, '_'), children, { pos, rotY, promptId });
@@ -424,7 +423,7 @@ function buildBuilding({ name, pos, size, palette, rotY = 0, accent, promptId, d
 
 function buildNpc(npc, pos, palette) {
   const body = [
-    part({ name: 'Torso', pos: [0, 3, 0], size: [2, 2.4, 1], color: shade(palette.accent2, 0.9), material: 'fabric' }),
+    part({ name: 'Torso', pos: [0, 3, 0], size: [2, 2.4, 1], color: shade(palette.accent2, 0.9), material: 'fabric', children: [pointLight('NpcGlow', palette.accent2, 1.5, 14)] }),
     part({ name: 'Head', pos: [0, 4.8, 0], size: [1.6, 1.6, 1.6], color: [236, 200, 160], material: 'plastic', shape: 'ball' }),
     part({ name: 'Legs', pos: [0, 1.2, 0], size: [1.8, 2, 1], color: shade(palette.base, 1.2), material: 'fabric' }),
     part({ name: 'Hat', pos: [0, 5.9, 0], size: [1.9, 0.5, 1.9], color: palette.accent, material: 'neon' }),
@@ -443,7 +442,6 @@ function buildNpc(npc, pos, palette) {
         }),
       ],
     }),
-    pointLight('NpcGlow', palette.accent2, 1.5, 14),
   ];
   return model(npc.id, body, { pos });
 }
@@ -489,8 +487,7 @@ function buildFountain(pos, palette) {
     part({ name: 'Water', pos: [0, 1.9, 0], size: [14, 0.6, 14], color: [90, 190, 240], material: 'water', shape: 'cylinder', transparency: 0.25, canCollide: false }),
     part({ name: 'Column', pos: [0, 4, 0], size: [2.4, 6, 2.4], color: shade(palette.base, 1.5), material: 'marble', shape: 'cylinder' }),
     part({ name: 'Bowl', pos: [0, 7, 0], size: [6, 1, 6], color: shade(palette.base, 1.6), material: 'marble', shape: 'cylinder' }),
-    part({ name: 'Jet', pos: [0, 9, 0], size: [1, 4, 1], color: [160, 230, 255], material: 'neon', shape: 'cylinder', transparency: 0.35, canCollide: false }),
-    pointLight('FountainGlow', palette.accent2, 1.6, 22),
+    part({ name: 'Jet', pos: [0, 9, 0], size: [1, 4, 1], color: [160, 230, 255], material: 'neon', shape: 'cylinder', transparency: 0.35, canCollide: false, children: [pointLight('FountainGlow', palette.accent2, 1.6, 22)] }),
   ], { pos });
 }
 
@@ -498,10 +495,9 @@ function buildStatue(pos, palette, label) {
   return model(`Statue_${Math.floor(pos[0])}_${Math.floor(pos[2])}`, [
     part({ name: 'Base', pos: [0, 1.2, 0], size: [8, 2.4, 8], color: shade(palette.base, 1.4), material: 'granite' }),
     part({ name: 'Pedestal', pos: [0, 3.6, 0], size: [5, 2.4, 5], color: shade(palette.base, 1.6), material: 'marble' }),
-    part({ name: 'Figure', pos: [0, 7.4, 0], size: [3, 5, 3], color: palette.accent, material: 'metal' }),
+    part({ name: 'Figure', pos: [0, 7.4, 0], size: [3, 5, 3], color: palette.accent, material: 'metal', children: [pointLight('StatueGlow', palette.accent, 1.4, 20)] }),
     part({ name: 'FigureHead', pos: [0, 10.6, 0], size: [2.2, 2.2, 2.2], color: palette.accent2, material: 'metal', shape: 'ball' }),
     part({ name: 'Plaque', pos: [0, 2.6, 4.2], size: [5, 1.4, 0.4], color: palette.accent2, material: 'neon' }),
-    pointLight('StatueGlow', palette.accent, 1.4, 20),
   ], { pos, label });
 }
 
@@ -576,8 +572,7 @@ function buildPortal(pos, palette, label) {
     part({ name: 'FrameLeft', pos: [-4, 6, 0], size: [1.2, 12, 1.2], color: palette.accent, material: 'metal' }),
     part({ name: 'FrameRight', pos: [4, 6, 0], size: [1.2, 12, 1.2], color: palette.accent, material: 'metal' }),
     part({ name: 'FrameTop', pos: [0, 12, 0], size: [9.2, 1.2, 1.2], color: palette.accent, material: 'metal' }),
-    part({ name: 'Swirl', pos: [0, 6, 0], size: [7.4, 11, 0.6], color: palette.accent2, material: 'neon', transparency: 0.25, canCollide: false }),
-    pointLight('PortalGlow', palette.accent2, 3, 34),
+    part({ name: 'Swirl', pos: [0, 6, 0], size: [7.4, 11, 0.6], color: palette.accent2, material: 'neon', transparency: 0.25, canCollide: false, children: [pointLight('PortalGlow', palette.accent2, 3, 34)] }),
   ], { pos, label });
 }
 
@@ -586,8 +581,7 @@ function buildLetterBoard(pos, word, palette, rotY = 0) {
   const children = [
     part({ name: 'BoardBase', pos: [0, 1, 0], size: [Math.max(12, word.length * 5 + 4), 2, 10], color: shade(palette.base, 1.25), material: 'marble' }),
     part({ name: 'BoardBack', pos: [0, 6, -4], size: [Math.max(12, word.length * 5 + 4), 10, 1], color: shade(palette.base, 0.85), material: 'brick' }),
-    part({ name: 'BoardSign', pos: [0, 11.4, -4], size: [Math.max(10, word.length * 4), 1.6, 0.6], color: palette.accent, material: 'neon' }),
-    pointLight('BoardGlow', palette.accent, 2, 26),
+    part({ name: 'BoardSign', pos: [0, 11.4, -4], size: [Math.max(10, word.length * 4), 1.6, 0.6], color: palette.accent, material: 'neon', children: [pointLight('BoardGlow', palette.accent, 2, 26)] }),
   ];
   const spacing = 5;
   const startX = -((word.length - 1) * spacing) / 2;
@@ -621,10 +615,10 @@ function buildPuzzleStation(pos, palette, label) {
           RequiresLineOfSight: { t: 'bool', v: false },
           KeyboardKeyCode: { t: 'token', v: 69 },
         }),
+        pointLight('StationGlow', palette.accent2, 1.8, 20),
       ],
     }),
     part({ name: 'HoloBoard', pos: [0, 8.4, 0], size: [7, 3.6, 0.3], color: palette.accent, material: 'neon', transparency: 0.3, canCollide: false }),
-    pointLight('StationGlow', palette.accent2, 1.8, 20),
   ], { pos });
 }
 
@@ -638,37 +632,22 @@ function buildZone(zone, palette, rng, index, detail) {
   ];
   zone.buildings.forEach((building, bi) => {
     const offsetX = (bi - (zone.buildings.length - 1) / 2) * 34;
-    children.push({
-      ...building,
-      props: {
-        ...building.props,
-        CFrame: { t: 'CFrame', v: [cx + offsetX, 0.6, cz - 8, 1, 0, 0, 0, 1, 0, 0, 0, 1] },
-      },
-    });
+    children.push(translate(building, [cx + offsetX, 0.6, cz - 8]));
   });
   if (zone.npcs) {
     zone.npcs.forEach((npc, ni) => {
       const offset = (ni - (zone.npcs.length - 1) / 2) * 14;
-      children.push({
-        ...npc,
-        props: { ...npc.props, CFrame: { t: 'CFrame', v: [cx + offset, 0.6, cz + 22, 1, 0, 0, 0, 1, 0, 0, 0, 1] } },
-      });
+      children.push(translate(npc, [cx + offset, 0.6, cz + 22]));
     });
   }
   if (zone.boards) {
     zone.boards.forEach((board, bi) => {
-      children.push({
-        ...board,
-        props: { ...board.props, CFrame: { t: 'CFrame', v: [cx - 18 + bi * 36, 0.6, cz + 6, 1, 0, 0, 0, 1, 0, 0, 0, 1] } },
-      });
+      children.push(translate(board, [cx - 18 + bi * 36, 0.6, cz + 6]));
     });
   }
   if (zone.stations) {
     zone.stations.forEach((station, si) => {
-      children.push({
-        ...station,
-        props: { ...station.props, CFrame: { t: 'CFrame', v: [cx + 20 - si * 12, 0.6, cz - 26, 1, 0, 0, 0, 1, 0, 0, 0, 1] } },
-      });
+      children.push(translate(station, [cx + 20 - si * 12, 0.6, cz - 26]));
     });
   }
   const decor = [];
