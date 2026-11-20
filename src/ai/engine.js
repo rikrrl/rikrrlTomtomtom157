@@ -4,6 +4,9 @@
  */
 
 import { GENRES } from '../game/generator.js';
+import {
+  THEMES, detectTheme, themePalette, zoneNamesFor, hashText,
+} from './themes.js';
 
 const GENRE_KEYWORDS = {
   simulator: ['simulator', 'simulation', 'farm', 'clicker', 'geld verdienen', 'coins sammeln', 'grind', 'tycoon-simulator'],
@@ -237,15 +240,84 @@ export function detectSpeed(text) {
   return SPEED_LEVELS.normal;
 }
 
-function titleFromText(text, genre) {
+/** Wörter, die fast jeder Prompt enthält und die keinen Spieltitel tragen. */
+const GENERIC_TITLE_WORDS = new Set([
+  'coins', 'coin', 'pets', 'pet', 'shops', 'shop', 'geld', 'muenzen', 'münzen', 'npcs', 'npc',
+  'quests', 'quest', 'level', 'leveln', 'map', 'welt', 'spiel', 'spielen', 'features', 'funktionen',
+  'systeme', 'mechaniken', 'update', 'version', 'sollen', 'sollte', 'kann', 'koennen', 'können',
+  'wird', 'werden', 'haben', 'hat', 'gibt', 'geben', 'sowie', 'noch', 'mehr', 'sehr', 'ganz',
+  'schoen', 'schön', 'gross', 'groß', 'klein', 'mittel', 'alles', 'alle', 'viele', 'bisschen',
+  'sprechenden', 'sprechende', 'grosser', 'großer', 'grosse', 'große',
+]);
+
+/**
+ * Titel aus der Beschreibung: die inhaltlich stärksten Wörter des Nutzers,
+ * ergänzt um das Genre. Generische Wörter (Coins, Shops, Pets) rutschen nach
+ * hinten, damit "Angeln Crafting Simulator" statt "Pets Coins Simulator" entsteht.
+ */
+function titleFromText(text, genre, themeKey = 'default') {
+  const theme = THEMES[themeKey] || THEMES.default;
+  const label = (GENRES[genre] || GENRES.simulator).label;
+  const labelWords = new Set(label.toLowerCase().split(/[\s/]+/));
   const words = normalise(text)
     .replace(/[^a-zäöüß0-9\s]/gi, ' ')
-    .split(' ')
-    .filter((w) => w.length > 2 && !STOP_WORDS.has(w));
-  const label = (GENRES[genre] || GENRES.simulator).label;
-  if (words.length === 0) return `${label} Experience`;
-  const core = words.slice(0, 3).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-  return `${core} ${label}`;
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !STOP_WORDS.has(w) && !labelWords.has(w));
+
+  const scored = words
+    .map((w, i) => ({
+      w,
+      i,
+      generic: GENERIC_TITLE_WORDS.has(w) ? 1 : 0,
+      themeWord: theme.keywords.some((k) => w.startsWith(k.slice(0, 4))) ? 1 : 0,
+    }))
+    .sort((a, b) => (a.themeWord - b.themeWord) || (a.generic - b.generic) || (a.i - b.i));
+
+  const core = [];
+  for (const entry of scored) {
+    if (core.includes(entry.w)) continue;
+    core.push(entry.w);
+    if (core.length === 2) break;
+  }
+
+  const cap = (w) => w.charAt(0).toUpperCase() + w.slice(1);
+  const parts = [];
+  if (theme.adjective) parts.push(theme.adjective);
+  parts.push(...core.map(cap));
+  let title = parts.join(' ').trim();
+  if (!title) return `${label} Experience`;
+  const firstLabelWord = label.split(' ')[0].toLowerCase();
+  if (!title.toLowerCase().includes(firstLabelWord)) title = `${title} ${label}`;
+  return title;
+}
+
+/** Explizit genannte Zonen: "Zonen: Wald, Strand, Höhle" oder "mit den Gebieten ...". */
+function explicitZoneNames(text) {
+  const raw = String(text || '');
+  const match = raw.match(/(?:zonen?|gebiete?|inseln?|bereiche?|welten?|biome?|regionen?)\s*[:\-–]\s*([^.;\n]+)/i)
+    || raw.match(/(?:mit|aus)\s+(?:den\s+|diesen\s+)?(?:zonen|gebieten|inseln|bereichen|biomen)\s+([^.;\n]+)/i);
+  if (!match) return [];
+  return match[1]
+    .split(/,| und | & | sowie | \+ /i)
+    .map((part) => part.trim().replace(/^(der|die|das|dem|den)\s+/i, '').replace(/[.!]$/, ''))
+    .filter((part) => part.length >= 3 && part.length <= 28)
+    .slice(0, 8);
+}
+
+/** Inhaltswörter des Prompts – Grundlage für Gebäude- und Shop-Namen. */
+export function extractKeywords(text) {
+  const words = normalise(text)
+    .replace(/[^a-zäöüß0-9\s-]/gi, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length >= 3 && !STOP_WORDS.has(w) && !/^\d+$/.test(w));
+  const out = [];
+  for (const word of words) {
+    const clean = word.replace(/-/g, '');
+    if (out.includes(clean)) continue;
+    out.push(clean);
+    if (out.length >= 8) break;
+  }
+  return out;
 }
 
 export function countMentions(text, words) {
@@ -294,12 +366,31 @@ export function analyzePrompt(text, options = {}) {
   const estimate = estimateBuild(quality.level, speed.level);
   const mapSize = size || (features.pets && /groß|big|riesig|huge/.test(normalise(raw)) ? 'groß' : 'mittel');
 
+  // Thema, Seed, Zonen und Layout entstehen aus dem Text selbst. Gleicher Text
+  // ergibt dasselbe Spiel, ein anderer Text ein anderes – kein Zufallsbrei.
+  const themeKey = detectTheme(raw);
+  const theme = THEMES[themeKey] || THEMES.default;
+  const seedValue = hashText([raw.toLowerCase(), quality.level, speed.level, options.salt || ''].join('|'));
+  const plannedZones = Math.max(2, Math.min(quality.zoneCap, zoneHint || (mapSize === 'riesig' ? 7 : mapSize === 'groß' ? 6 : 5)));
+  const explicitZones = explicitZoneNames(raw);
+  const zoneNames = explicitZones.length >= 2
+    ? explicitZones.slice(0, plannedZones)
+    : zoneNamesFor(themeKey, (GENRES[genre] || GENRES.simulator).zoneNames, seedValue, plannedZones);
+  const layout = ['ring', 'line', 'spiral', 'grid', 'cluster'][seedValue % 5];
+  const keywords = extractKeywords(raw);
+
   const spec = {
-    title: options.title || titleFromText(raw, genre),
+    title: options.title || titleFromText(raw, genre, themeKey),
     genre,
     description: raw,
     prompt: raw,
-    seed: Math.floor(Math.random() * 1_000_000),
+    seed: seedValue,
+    themeKey,
+    themeLabel: theme.label,
+    layout,
+    zoneNames,
+    keywords,
+    terrain: theme.terrain,
     version: '1.0.0',
     features,
     mapSize,
@@ -310,14 +401,14 @@ export function analyzePrompt(text, options = {}) {
     speedSeconds: estimate.seconds,
     polishPasses: speed.extraPasses,
     passes: estimate.passes,
-    zoneCount: Math.max(2, Math.min(quality.zoneCap, zoneHint || (mapSize === 'riesig' ? 7 : mapSize === 'groß' ? 6 : 5))),
+    zoneCount: Math.max(2, Math.min(quality.zoneCap, plannedZones, zoneNames.length)),
     shopCount: Math.max(2, Math.min(7, Math.max(shopHint || 0, features.shops ? 5 : 3))),
     npcCount: Math.max(2, Math.min(7, npcHint || (features.npcs ? 5 : 4))),
     petCount: features.pets ? Math.max(6, Math.min(10, petHint || 8)) : Math.max(2, Math.min(5, petHint || 4)),
     difficulty: /schwer|hard|brutal|schwierig/.test(normalise(raw)) ? 'schwer'
       : /leicht|easy|entspannt|chill/.test(normalise(raw)) ? 'leicht' : 'normal',
     theme: raw.slice(0, 120),
-    palette: basePalette(colors),
+    palette: themePalette(themeKey, colors),
     source: { type: 'prompt', text: raw },
   };
 
@@ -332,8 +423,11 @@ export function analyzePrompt(text, options = {}) {
       difficulty: spec.difficulty,
     },
     notes: [
+      `Titel aus deinem Text: ${spec.title}`,
       `Genre erkannt: ${(GENRES[genre] || GENRES.simulator).label}`,
-      `Kartengröße: ${mapSize} mit ${spec.zoneCount} Zonen`,
+      `Thema: ${theme.label}${explicitZones.length >= 2 ? ' (Zonen aus deiner Beschreibung)' : ''}`,
+      `Zonen: ${spec.zoneNames.join(', ')}`,
+      `Kartengröße: ${mapSize} mit ${spec.zoneCount} Zonen, Layout: ${layout}`, 
       `Shops: ${spec.shopCount}, NPCs: ${spec.npcCount}${features.pets ? `, Pets: ${spec.petCount}` : ''}`,
       `Spieltiefe: ${quality.label} (${quality.systems} Systeme, bis ${quality.zoneCap} Zonen)`,
       `Tempo: ${speed.label} – ca. ${estimate.seconds} s Arbeitszeit, ${estimate.passes} Durchläufe${speed.extraPasses ? ` inkl. ${speed.extraPasses} Zusatzpässen` : ''}`,
