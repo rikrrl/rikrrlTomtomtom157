@@ -29,12 +29,21 @@ export function parseRobloxUrl(input) {
   const fromQuery = params.get('placeId') || params.get('placeid') || params.get('universeId') || params.get('universeid');
   if (fromQuery && /^\d+$/.test(fromQuery)) {
     const isUniverse = Boolean(params.get('universeId') || params.get('universeid'));
-    return { ok: true, id: fromQuery, kind: isUniverse ? 'universe' : 'place', raw };
+    return {
+      ok: true,
+      id: fromQuery,
+      placeId: isUniverse ? null : fromQuery,
+      universeId: isUniverse ? fromQuery : null,
+      kind: isUniverse ? 'universe' : 'place',
+      raw,
+    };
   }
 
-  const match = url.pathname.match(/\/(?:games|game|places|discover\/games)\/(\d+)/i) || url.pathname.match(/\/(\d{5,})/);
+  // Roblox nutzt auch Hash-Routen: /discover#/experiences/920587237
+  const route = `${url.pathname}${url.hash || ''}`;
+  const match = route.match(/\/(?:games|game|places|experiences|discover\/games)\/(\d+)/i) || route.match(/\/(\d{5,})/);
   if (match) {
-    return { ok: true, id: match[1], kind: 'place', raw };
+    return { ok: true, id: match[1], placeId: match[1], universeId: null, kind: 'place', raw };
   }
   return { ok: false, error: 'In diesem Link ist keine Roblox-Place-ID enthalten.' };
 }
@@ -85,13 +94,37 @@ const FEATURE_HINTS = {
   multiplayer: ['multiplayer', 'co-op', 'team', 'trade'],
 };
 
+/** Offizielle Roblox-Genres auf die Genres des Generators abbilden. */
+const ROBLOX_GENRE_MAP = {
+  simulation: 'simulator', simulator: 'simulator', tycoon: 'tycoon', building: 'tycoon',
+  horror: 'horror', scary: 'horror', obby: 'obby', 'obstacle course': 'obby', party: 'obby',
+  'town and city': 'openworld', town: 'openworld', city: 'openworld', roleplay: 'openworld',
+  adventure: 'rpg', rpg: 'rpg', fantasy: 'rpg', fighting: 'battle', battle: 'battle',
+  'battle royale': 'battle', pvp: 'battle', military: 'battle', sports: 'battle', naval: 'battle',
+  pets: 'pets', 'pet simulator': 'pets', educational: 'simulator', western: 'openworld',
+  comedy: 'openworld', scifi: 'openworld', ninja: 'battle', pirate: 'openworld',
+};
+
+function mapOfficialGenre(value) {
+  const g = String(value || '').toLowerCase().trim();
+  if (!g) return null;
+  if (ROBLOX_GENRE_MAP[g]) return ROBLOX_GENRE_MAP[g];
+  const key = Object.keys(ROBLOX_GENRE_MAP).find((k) => g.includes(k));
+  return key ? ROBLOX_GENRE_MAP[key] : null;
+}
+
 function deriveGenre(game) {
-  const text = `${game.name || ''} ${game.description || ''} ${(game.genre_l1 || '')} ${(game.genre_l2 || '')}`.toLowerCase();
+  // Das offizielle Roblox-Genre ist die verlässlichste Quelle und hat Vorrang.
+  for (const value of [game.genre_l1, game.genre_l2, game.genre]) {
+    const mapped = mapOfficialGenre(value);
+    if (mapped) return { genre: mapped, score: 10, source: 'roblox-genre' };
+  }
+  const text = `${game.name || ''} ${game.description || ''}`.toLowerCase();
   const scores = GENRE_HINTS.map(({ genre, words }) => ({
     genre,
     score: words.reduce((sum, word) => (text.includes(word) ? sum + (word.includes(' ') ? 3 : 2) : sum), 0),
   })).sort((a, b) => b.score - a.score);
-  return { genre: scores[0].score > 0 ? scores[0].genre : 'simulator', score: scores[0].score };
+  return { genre: scores[0].score > 0 ? scores[0].genre : 'simulator', score: scores[0].score, source: 'text' };
 }
 
 function deriveFeatures(game) {

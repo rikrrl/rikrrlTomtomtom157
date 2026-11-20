@@ -69,13 +69,29 @@ function containsAny(text, words) {
   return words.some((word) => text.includes(word));
 }
 
+function stem(word) {
+  return word.replace(/(es|en|e|s|n)$/u, '') || word;
+}
+
 export function detectGenre(text) {
   const t = normalise(text);
   let best = { genre: 'simulator', score: 0 };
   for (const [genre, words] of Object.entries(GENRE_KEYWORDS)) {
-    let score = 0;
+    // Wortstämme sammeln, damit "pet" und "pets" nicht doppelt zählen.
+    const stems = new Set();
     for (const word of words) {
-      if (t.includes(word)) score += word.includes(' ') ? 3 : 2;
+      if (t.includes(word)) stems.add(stem(word));
+    }
+    let score = stems.size * 2;
+    if (stems.size > 0) {
+      // "Erstelle ein Simulator-Spiel", "Simulator spiel", "tycoon game" wiegen stärker
+      // als beiläufig genannte Inhalte wie "mit Pets und Coins".
+      const direct = new RegExp(
+        `(^|[\\s(])(erstelle|erstellen|mache|baue|create|make|build)?\\s*(ein|eine|einen|a|an)?\\s*${genre}`,
+        'i',
+      );
+      if (direct.test(t)) score += 6;
+      if (new RegExp(`${genre}[-\\s](spiel|game)`, 'i').test(t)) score += 4;
     }
     if (score > best.score) best = { genre, score };
   }
