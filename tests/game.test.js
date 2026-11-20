@@ -69,8 +69,13 @@ test('Textbeschreibung erzeugt ein vollständiges Spiel', () => {
   assert.match(serverScript.props.Source.v, /DataStoreService/);
   assert.match(serverScript.props.Source.v, /PlayerAdded/);
 
-  const starterGui = project.services.find((s) => s.name === 'StarterGui');
-  assert.ok(collect(starterGui, 'LocalScript').length >= 1, 'Client-UI-Skript fehlt');
+  // Die GUI wird programmatisch über das UILibrary-Modul aufgebaut; die Client-Logik liegt
+  // in StarterPlayer/StarterPlayerScripts (Roblox-Standard für LocalScripts).
+  const starterPlayer = project.services.find((s) => s.name === 'StarterPlayer');
+  assert.ok(collect(starterPlayer, 'LocalScript').length >= 1, 'Client-UI-Skript fehlt');
+  const uiLibrary = collect(replicated, 'ModuleScript').find((n) => n.name === 'UILibrary');
+  assert.ok(uiLibrary, 'UILibrary-Modul fehlt');
+  assert.ok(uiLibrary.props.Source.v.length > 1000, 'UILibrary-Code wirkt zu klein');
 });
 
 test('Alle Genres erzeugen exportierbares XML', () => {
