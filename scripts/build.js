@@ -38,9 +38,9 @@ for (const file of required.filter((f) => f.endsWith('.js') && !f.startsWith('pu
 }
 execFileSync(process.execPath, ['--check', 'public/app.js'], { cwd: root, stdio: 'inherit' });
 
-const { analyzePrompt } = await import('./src/ai/engine.js');
-const { generateProject } = await import('./src/game/generator.js');
-const { serializeRbxlx } = await import('./src/game/rbxlx.js');
+const { analyzePrompt } = await import('../src/ai/engine.js');
+const { generateProject } = await import('../src/game/generator.js');
+const { serializeRbxlx } = await import('../src/game/rbxlx.js');
 
 const { spec } = analyzePrompt('Erstelle ein Simulator-Spiel mit Pets, Coins, Shops und einer großen Map.');
 const project = generateProject(spec);
