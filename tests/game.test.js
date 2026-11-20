@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { analyzePrompt, applyChatInstruction } from '../src/ai/engine.js';
-import { generateProject } from '../src/game/generator.js';
+import { generateProject, validateBuild } from '../src/game/generator.js';
 import { serializeRbxlx } from '../src/game/rbxlx.js';
 import { buildPlan } from '../src/game/plan.js';
 import { parseRobloxUrl, analyzeRobloxLink } from '../src/ai/link.js';
@@ -208,4 +208,47 @@ test('Ungültige Links ergeben eine verständliche Fehlermeldung', async () => {
   const analysis = await analyzeRobloxLink('https://example.com/nichts');
   assert.equal(analysis.ok, false);
   assert.match(analysis.error, /roblox/i);
+});
+
+test('Wortspiel-Genre erzeugt ein spielbares Wortspiel', () => {
+  const { spec } = analyzePrompt('Erstelle ein Wortspiel mit Buchstabenrätseln, Punkten und Rangliste.');
+  assert.equal(spec.genre, 'wortspiel', 'Wortspiel wurde nicht als Genre erkannt');
+
+  const project = generateProject(spec);
+  const xml = serializeRbxlx(project.services);
+  assertWellFormedXml(xml);
+
+  assert.ok(project.stats.parts > 120, `Wortspiel-Map wirkt zu leer: ${project.stats.parts} Bauteile`);
+  assert.ok(project.stats.scripts >= 5, `Zu wenige Skripte: ${project.stats.scripts}`);
+  assert.ok(xml.includes('WordGameService'), 'Wortspiel-Service fehlt im Export');
+  assert.ok(xml.includes('WordSubmit'), 'Client-Server-Ereignis für Wörter fehlt');
+
+  const starterPlayer = project.services.find((s) => s.name === 'StarterPlayer');
+  assert.ok(collect(starterPlayer, 'LocalScript').length >= 1, 'Wortspiel-Oberfläche fehlt');
+
+  const validation = validateBuild(project, spec);
+  assert.ok(validation.score >= 80, `Qualitätsprüfung zu schwach: ${validation.score}/100`);
+});
+
+test('Qualitätsstufen erhöhen Detailtiefe und Systemzahl', () => {
+  const prompt = 'Erstelle ein Simulator-Spiel mit Pets, Coins, Shops und einer großen Map.';
+  const results = ['schnell', 'grundlich', 'maximal'].map((quality) => {
+    const { spec } = analyzePrompt(prompt, { quality });
+    assert.equal(spec.quality, quality);
+    const project = generateProject(spec);
+    const validation = validateBuild(project, spec);
+    assert.ok(validation.score >= 80, `${quality}: Qualitätsprüfung zu schwach (${validation.score}/100)`);
+    assertWellFormedXml(serializeRbxlx(project.services));
+    return {
+      quality,
+      parts: project.stats.parts,
+      systems: (project.systems || []).length,
+      scripts: project.stats.scripts,
+    };
+  });
+
+  assert.ok(results[0].parts < results[1].parts, 'Gründlich muss mehr Bauteile haben als Schnell');
+  assert.ok(results[1].parts < results[2].parts, 'Maximal muss mehr Bauteile haben als Gründlich');
+  assert.ok(results[0].systems < results[2].systems, 'Maximal muss mehr Systeme aktivieren');
+  assert.ok(results[2].scripts >= results[0].scripts, 'Maximal darf nicht weniger Skripte haben');
 });
