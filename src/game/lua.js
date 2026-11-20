@@ -50,6 +50,10 @@ local Config = {
 \tquests = ${toLua(config.quests, 1)},
 \tnpcs = ${toLua(config.npcs, 1)},
 \tupgrades = ${toLua(config.upgrades, 1)},
+\tquestChains = ${toLua(config.questChains || {}, 1)},
+\ttalents = ${toLua(config.talents || {}, 1)},
+\tdailyRewards = ${toLua(config.dailyRewards || {}, 1)},
+\tbosses = ${toLua(config.bosses || {}, 1)},
 }
 
 function Config.findPet(id)

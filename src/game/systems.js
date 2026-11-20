@@ -562,6 +562,20 @@ function WordGameService.State()
 	return { solved = round.solved, word = round.current and round.current.word or nil }
 end
 
+local startEvent = remote("WordStart")
+if startEvent then
+	startEvent.OnServerEvent:Connect(function(player)
+		WordGameService.StartRound(player)
+	end)
+end
+
+local submitEvent = remote("WordSubmit")
+if submitEvent then
+	submitEvent.OnServerEvent:Connect(function(player, guess)
+		WordGameService.Submit(player, guess)
+	end)
+end
+
 _G.WordGameService = WordGameService
 return WordGameService
 `;
@@ -688,6 +702,42 @@ box.FocusLost:Connect(function(enterPressed)
 	if enterPressed then sendGuess() end
 end)
 close.MouseButton1Click:Connect(function() frame.Visible = false end)
+
+local startButton = Instance.new("TextButton")
+startButton.Size = UDim2.fromOffset(170, 30)
+startButton.Position = UDim2.fromOffset(16, 214)
+startButton.BackgroundColor3 = Color3.fromRGB(86, 226, 255)
+startButton.BorderSizePixel = 0
+startButton.Font = Enum.Font.GothamBold
+startButton.TextSize = 15
+startButton.TextColor3 = Color3.fromRGB(20, 20, 30)
+startButton.Text = "Neue Runde starten"
+startButton.Parent = frame
+
+local startCorner = Instance.new("UICorner")
+startCorner.CornerRadius = UDim.new(0, 10)
+startCorner.Parent = startButton
+
+startButton.MouseButton1Click:Connect(function()
+	local event = Remotes:FindFirstChild("WordStart")
+	if event then event:FireServer() end
+end)
+
+-- Rätsel-Stationen in der Welt öffnen das Fenster ebenfalls
+local function bindPrompt(object)
+	if object:IsA("ProximityPrompt") and object.ActionText == "Rätsel starten" then
+		object.PromptTriggered:Connect(function()
+			frame.Visible = true
+			local event = Remotes:FindFirstChild("WordStart")
+			if event then event:FireServer() end
+		end)
+	end
+end
+
+for _, object in ipairs(workspace:GetDescendants()) do
+	bindPrompt(object)
+end
+workspace.DescendantAdded:Connect(bindPrompt)
 
 local roundEvent = Remotes:FindFirstChild("WordRound")
 if roundEvent then
