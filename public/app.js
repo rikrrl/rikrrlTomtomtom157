@@ -538,6 +538,7 @@ async function createFromPrompt() {
     state.draftPrompt = '';
     await loadProjects();
     toast(`„${data.project.title}“ wurde erstellt.`, 'ok');
+    followBuild(data.project.id);
   } catch (error) {
     toast(error.message, 'error');
   } finally {
@@ -583,6 +584,7 @@ async function createFromLink() {
     state.draftUrl = '';
     await loadProjects();
     toast(`Nachbau von „${data.project.title}“ erstellt.`, 'ok');
+    followBuild(data.project.id);
   } catch (error) {
     toast(error.message, 'error');
   } finally {
@@ -649,6 +651,29 @@ async function openProject(id) {
     render();
   } catch (error) {
     toast(error.message, 'error');
+  }
+}
+
+/** Verfolgt einen laufenden Build und aktualisiert Fortschritt und Ergebnisbericht. */
+async function followBuild(id) {
+  for (let i = 0; i < 120; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    try {
+      const data = await api(`/api/projects/${id}`);
+      if (state.view !== 'project' || !state.current || state.current.id !== id) return;
+      state.current = data.project;
+      render();
+      if (data.project.status !== 'building') {
+        await loadProjects();
+        toast(
+          data.project.status === 'ready' ? 'Spiel fertig gebaut.' : `Build abgebrochen: ${data.project.error || 'unbekannter Fehler'}`,
+          data.project.status === 'ready' ? 'ok' : 'error',
+        );
+        return;
+      }
+    } catch {
+      return;
+    }
   }
 }
 

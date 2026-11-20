@@ -62,8 +62,13 @@ test('Webseite und API arbeiten end-to-end', async (t) => {
     }),
   });
   assert.equal(created.status, 201, await created.clone().text());
-  const { project } = await created.json();
+  let { project } = await created.json();
   assert.ok(project.id);
+  // Der Build läuft im Hintergrund, damit die Fortschrittsanzeige sofort sichtbar ist.
+  for (let i = 0; i < 300 && project.status === 'building'; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    project = (await (await fetch(`${BASE}/api/projects/${project.id}`)).json()).project;
+  }
   assert.equal(project.status, 'ready');
   assert.ok(project.stats.parts > 250);
   assert.ok(project.stats.scripts >= 5);

@@ -212,6 +212,15 @@ app.delete('/api/projects/:id', (req, res) => {
 });
 
 /** Funktion 1: Spiel aus Beschreibung erzeugen. */
+/** Startet den Build im Hintergrund, damit die Fortschrittsanzeige sofort sichtbar ist. */
+function startBuildInBackground(project) {
+  runBuild(project).catch((error) => {
+    project.status = 'error';
+    project.error = error.message;
+    saveProject(project);
+  });
+}
+
 app.post('/api/projects', async (req, res) => {
   const body = req.body || {};
   const mode = body.mode || (body.url ? 'link' : 'prompt');
@@ -242,7 +251,7 @@ app.post('/api/projects', async (req, res) => {
         'Du kannst jetzt als .rbxlx exportieren oder mir Änderungen sagen – ich bearbeite dasselbe Projekt weiter.',
     });
     saveProject(project);
-    await runBuild(project);
+    startBuildInBackground(project);
     res.status(201).json({ project });
   } catch (error) {
     console.error(error);
@@ -312,7 +321,7 @@ async function createFromLink(body, res) {
   });
   saveProject(project);
   materialize(project);
-  await runBuild(project);
+  startBuildInBackground(project);
   res.status(201).json({ project, analysis });
 }
 
