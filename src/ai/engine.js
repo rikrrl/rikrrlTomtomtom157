@@ -6,11 +6,6 @@
 import { GENRES } from '../game/generator.js';
 
 const GENRE_KEYWORDS = {
-  fishing: ['angel', 'angeln', 'fisch', 'fische', 'fischen', 'fishing'],
-  crafting: ['crafting', 'craften', 'basteln', 'rezept', 'rezepte', 'werkbank'],
-  guilds: ['gilde', 'gilden', 'guild', 'clan', 'clans'],
-  seasonpass: ['season pass', 'seasonpass', 'saisonpass', 'battle pass', 'season'],
-  dialogue: ['dialog', 'dialoge', 'gespraech', 'reden', 'sprechende npc'],
   simulator: ['simulator', 'simulation', 'farm', 'clicker', 'geld verdienen', 'coins sammeln', 'grind', 'tycoon-simulator'],
   tycoon: ['tycoon', 'fabrik', 'factory', 'business', 'firma', 'imperium', 'wirtschaft', 'produktion', 'lager'],
   horror: ['horror', 'grusel', 'spuk', 'monster', 'angst', 'scary', 'dark', 'nacht', 'verlassen', 'zombie', 'slender'],
@@ -23,6 +18,11 @@ const GENRE_KEYWORDS = {
 };
 
 const FEATURE_KEYWORDS = {
+  fishing: ['angel', 'angeln', 'fisch', 'fische', 'fischen', 'fishing'],
+  crafting: ['crafting', 'craften', 'basteln', 'rezept', 'rezepte', 'werkbank'],
+  guilds: ['gilde', 'gilden', 'guild', 'clan', 'clans'],
+  seasonpass: ['season pass', 'seasonpass', 'saisonpass', 'battle pass', 'season'],
+  dialogue: ['dialog', 'dialoge', 'gespraech', 'reden', 'sprechende npc'],
   pets: ['pet', 'haustier', 'haustiere', 'tier', 'begleiter', 'companion'],
   coins: ['coin', 'coins', 'münze', 'münzen', 'geld', 'währung', 'currency', 'cash'],
   shops: ['shop', 'shops', 'laden', 'läden', 'store', 'kaufen', 'markt', 'händler', 'market'],
@@ -163,19 +163,19 @@ export function detectColors(text) {
 export const QUALITY_LEVELS = {
   basis: {
     level: 'basis', label: 'Basis', blurb: 'Sauberes Grundspiel mit den Kernsystemen.',
-    detail: 0.9, decor: 0.9, systems: 5, zoneCap: 4, boards: 1, passes: 1, timeBonus: 0, target: 74,
+    detail: 0.9, decor: 0.9, systems: 7, zoneCap: 4, boards: 1, passes: 1, timeBonus: 0, target: 74,
   },
   hoch: {
     level: 'hoch', label: 'Hoch', blurb: 'Mehr Zonen, mehr Deko, mehr Systeme.',
-    detail: 1.25, decor: 1.35, systems: 7, zoneCap: 6, boards: 2, passes: 2, timeBonus: 1, target: 84,
+    detail: 1.25, decor: 1.35, systems: 10, zoneCap: 6, boards: 2, passes: 2, timeBonus: 1, target: 84,
   },
   profi: {
     level: 'profi', label: 'Profi', blurb: 'Volle Karte, tiefe Systeme, Feinschliff-Pässe.',
-    detail: 1.7, decor: 1.95, systems: 9, zoneCap: 8, boards: 3, passes: 3, timeBonus: 2, target: 91,
+    detail: 1.7, decor: 1.95, systems: 13, zoneCap: 8, boards: 3, passes: 3, timeBonus: 2, target: 91,
   },
   meister: {
     level: 'meister', label: 'Meister', blurb: 'Maximaler Umfang, alle Systeme, mehrere Durchläufe.',
-    detail: 2.2, decor: 2.6, systems: 12, zoneCap: 8, boards: 4, passes: 4, timeBonus: 3, target: 96,
+    detail: 2.2, decor: 2.6, systems: 16, zoneCap: 8, boards: 4, passes: 4, timeBonus: 3, target: 96,
   },
 };
 
