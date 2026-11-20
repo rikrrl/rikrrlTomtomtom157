@@ -1180,6 +1180,7 @@ export function validateBuild(built, spec) {
   const hasConfig = Boolean(find(root, (n) => n.className === 'ModuleScript' && n.name === 'GameConfig'));
   const hasUi = Boolean(find(root, (n) => n.className === 'ModuleScript' && n.name === 'UILibrary'));
 
+  const promptCount = built.stats.classes.ProximityPrompt || 0;
   const checks = [
     { id: 'spawn', label: 'Spawnpunkt vorhanden', ok: hasSpawn },
     { id: 'shops', label: `${shopCount} Shops mit Artikeln`, ok: shopCount >= 2 },
@@ -1189,6 +1190,7 @@ export function validateBuild(built, spec) {
     { id: 'ui', label: 'UILibrary-Modul vorhanden', ok: hasUi },
     { id: 'zones', label: `${built.zoneCount} Zonen gebaut`, ok: built.zoneCount >= 2 },
     { id: 'systems', label: `${built.systems.length} Systeme aktiv`, ok: built.systems.length >= 3 },
+    { id: 'features', label: `${promptCount} Aktionspunkte (Angeln, Werkbank, Gilde, Season-Pass, Dialog)`, ok: promptCount >= 5 },
   ];
 
   const partsScore = Math.min(30, (built.stats.parts / 400) * 30);
