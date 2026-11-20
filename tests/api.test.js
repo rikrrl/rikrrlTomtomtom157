@@ -61,7 +61,7 @@ test('Webseite und API arbeiten end-to-end', async (t) => {
       prompt: 'Erstelle ein Simulator-Spiel mit Pets, Coins, Shops und einer großen Map.',
     }),
   });
-  assert.equal(created.status, 201, await created.text());
+  assert.equal(created.status, 201, await created.clone().text());
   const { project } = await created.json();
   assert.ok(project.id);
   assert.equal(project.status, 'ready');
@@ -100,7 +100,7 @@ test('Webseite und API arbeiten end-to-end', async (t) => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ message: 'Bitte mehr Pets und eine größere Map' }),
   });
-  assert.equal(chat.status, 200, await chat.text());
+  assert.equal(chat.status, 200, await chat.clone().text());
   const chatData = await chat.json();
   assert.ok(chatData.project.version !== project.version, 'Version sollte steigen');
   assert.ok(chatData.project.chat.length > project.chat.length);

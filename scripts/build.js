@@ -46,7 +46,7 @@ const { spec } = analyzePrompt('Erstelle ein Simulator-Spiel mit Pets, Coins, Sh
 const project = generateProject(spec);
 const xml = serializeRbxlx(project.services);
 
-if (!xml.startsWith('<roblox') || !xml.includes('<Item class=')) {
+if (!xml.startsWith('<?xml') || !xml.includes('<roblox') || !xml.includes('<Item class=')) {
   console.error('FEHLER: rbxlx-Ausgabe ist leer oder ungültig.');
   process.exit(1);
 }
