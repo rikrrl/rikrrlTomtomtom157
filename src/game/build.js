@@ -85,8 +85,44 @@ export function folder(name, children = []) {
   return inst('Folder', name, {}, children);
 }
 
-export function model(name, children = [], primary = null) {
-  return inst('Model', name, {}, children);
+/**
+ * Model mit Platzierung: die Kinder werden um opts.pos verschoben und optional
+ * um opts.rotY (Grad) gedreht. Bausteine bleiben so lokal lesbar.
+ */
+export function model(name, children = [], opts = null) {
+  if (!opts || (!opts.pos && !opts.rotY)) return inst('Model', name, {}, children);
+  const pos = opts.pos || [0, 0, 0];
+  const rotY = opts.rotY || 0;
+  return inst('Model', name, {}, children.map((child) => translate(child, pos, rotY)));
+}
+
+/** Verschiebt (und optional um die Y-Achse dreht) einen Teilbaum in Weltkoordinaten. */
+export function translate(node, offset, rotY = 0) {
+  const rads = (rotY * Math.PI) / 180;
+  const c = Math.cos(rads);
+  const s = Math.sin(rads);
+  const movePoint = (x, y, z) => [offset[0] + x * c + z * s, offset[1] + y, offset[2] - x * s + z * c];
+  const props = { ...node.props };
+  const frame = props.CFrame;
+  if (frame && frame.t === 'CFrame' && Array.isArray(frame.v)) {
+    const v = frame.v;
+    const p = movePoint(v[0], v[1], v[2]);
+    const rows = [[v[3], v[4], v[5]], [v[6], v[7], v[8]], [v[9], v[10], v[11]]];
+    const ry = [[c, 0, s], [0, 1, 0], [-s, 0, c]];
+    const out = [];
+    for (let i = 0; i < 3; i++) {
+      for (let j = 0; j < 3; j++) {
+        out.push(ry[i][0] * rows[0][j] + ry[i][1] * rows[1][j] + ry[i][2] * rows[2][j]);
+      }
+    }
+    props.CFrame = { t: 'CFrame', v: [p[0], p[1], p[2], ...out] };
+  }
+  const pivot = props.WorldPivot;
+  if (pivot && pivot.t === 'CFrame' && Array.isArray(pivot.v)) {
+    const p = movePoint(pivot.v[0], pivot.v[1], pivot.v[2]);
+    props.WorldPivot = { t: 'CFrame', v: [p[0], p[1], p[2], ...pivot.v.slice(3)] };
+  }
+  return { ...node, props, children: (node.children || []).map((child) => translate(child, offset, rotY)) };
 }
 
 export function scriptNode(name, source, className = 'Script') {
