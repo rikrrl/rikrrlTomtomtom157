@@ -19,6 +19,11 @@ import {
   dayCycleModule, antiCheatModule, SYSTEM_CATALOG,
 } from './systems.js';
 import { leaderboardServiceModule, tutorialServiceModule } from './systems-extra.js';
+import {
+  fishingServiceModule, craftingServiceModule, guildServiceModule,
+  seasonPassServiceModule, dialogueServiceModule, MORE_SYSTEM_IDS,
+} from './systems-more.js';
+import { buildFeatureWorld } from './features.js';
 import { treeStats } from './rbxlx.js';
 
 export const GENRES = {
@@ -96,10 +101,10 @@ const MAP_SIZES = {
 
 /** Qualitätsprofile: steuern Detaildichte, Systemumfang und Anzahl der Prüfdurchläufe. */
 export const QUALITY_PROFILE = {
-  basis: { level: 'basis', label: 'Basis', detail: 0.9, decor: 0.9, systems: 5, passes: 1, boards: 1 },
-  hoch: { level: 'hoch', label: 'Hoch', detail: 1.25, decor: 1.35, systems: 7, passes: 2, boards: 2 },
-  profi: { level: 'profi', label: 'Profi', detail: 1.7, decor: 1.95, systems: 9, passes: 3, boards: 3 },
-  meister: { level: 'meister', label: 'Meister', detail: 2.2, decor: 2.6, systems: 11, passes: 4, boards: 4 },
+  basis: { level: 'basis', label: 'Basis', detail: 0.9, decor: 0.9, systems: 7, passes: 1, boards: 1 },
+  hoch: { level: 'hoch', label: 'Hoch', detail: 1.25, decor: 1.35, systems: 10, passes: 2, boards: 2 },
+  profi: { level: 'profi', label: 'Profi', detail: 1.7, decor: 1.95, systems: 13, passes: 3, boards: 3 },
+  meister: { level: 'meister', label: 'Meister', detail: 2.2, decor: 2.6, systems: 16, passes: 4, boards: 4 },
 };
 
 /** Alte Projekte (schnell/gründlich/maximal) bleiben vollständig baubar. */
@@ -375,7 +380,7 @@ export function buildGameConfig(spec) {
       { id: 'speed', name: 'Laufgeschwindigkeit', price: 300, value: 4 },
       { id: 'reach', name: 'Sammel-Reichweite', price: 450, value: 6 },
     ],
-    systems: Object.keys(SYSTEM_CATALOG),
+    systems: [...Object.keys(SYSTEM_CATALOG), ...MORE_SYSTEM_IDS],
   };
 }
 
@@ -1045,12 +1050,15 @@ export function generateProject(spec) {
     }
   }
 
+  const featureWorld = buildFeatureWorld(spec, palette, half, rng, zones.map((zone) => zone.center));
+
   const workspaceNode = inst('Workspace', 'Workspace', {
     FilteringEnabled: { t: 'bool', v: true },
     StreamingEnabled: { t: 'bool', v: false },
     Gravity: { t: 'float', v: 196.2 },
   }, [
     folder('Map', mapChildren),
+    folder('Features', featureWorld),
     shops,
     npcs,
     interactive,
@@ -1061,7 +1069,9 @@ export function generateProject(spec) {
   const remotes = folder('Remotes', [
     inst('RemoteEvent', 'DataSync'), inst('RemoteEvent', 'Notify'), inst('RemoteEvent', 'BuyItem'),
     inst('RemoteEvent', 'EquipPet'), inst('RemoteEvent', 'PetEquipped'), inst('RemoteEvent', 'ClaimQuest'),
-    inst('RemoteEvent', 'Rebirth'), inst('RemoteEvent', 'Dialog'),
+    inst('RemoteEvent', 'Rebirth'), inst('RemoteEvent', 'FishingCatch'), inst('RemoteEvent', 'CraftRequest'),
+    inst('RemoteEvent', 'CraftResult'), inst('RemoteEvent', 'GuildAction'), inst('RemoteEvent', 'GuildState'),
+    inst('RemoteEvent', 'SeasonClaim'), inst('RemoteEvent', 'SeasonState'), inst('RemoteEvent', 'Dialog'), inst('RemoteEvent', 'Dialog'),
     inst('RemoteEvent', 'QuestReward'), inst('RemoteEvent', 'QuestProgress'), inst('RemoteEvent', 'QuestState'),
     inst('RemoteEvent', 'AchievementUnlocked'), inst('RemoteEvent', 'BuyTalent'),
     inst('RemoteEvent', 'DailyReward'), inst('RemoteEvent', 'DailyState'),
@@ -1089,6 +1099,11 @@ export function generateProject(spec) {
     { id: 'boss', node: () => serverScript('BossService', bossServiceModule(spec, config)) },
     { id: 'trading', node: () => serverScript('TradeService', tradeServiceModule(spec, config)) },
     { id: 'wordgame', node: () => serverScript('WordGameService', wordGameServiceModule(spec, config)) },
+    { id: 'fishing', node: () => serverScript('FishingService', fishingServiceModule(spec, config)) },
+    { id: 'crafting', node: () => serverScript('CraftingService', craftingServiceModule(spec, config)) },
+    { id: 'guilds', node: () => serverScript('GuildService', guildServiceModule(spec, config)) },
+    { id: 'seasonpass', node: () => serverScript('SeasonPassService', seasonPassServiceModule(spec, config)) },
+    { id: 'dialogue', node: () => serverScript('DialogueService', dialogueServiceModule(spec, config)) },
     { id: 'leaderboard', node: () => serverScript('LeaderboardService', leaderboardServiceModule(spec, config)) },
     { id: 'tutorial', node: () => serverScript('TutorialService', tutorialServiceModule(spec, config)) },
   ];
