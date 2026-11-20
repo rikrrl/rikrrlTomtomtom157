@@ -293,6 +293,13 @@ function statusTag(project) {
   return '<span class="tag warn">Fehler</span>';
 }
 
+const SYSTEM_LABELS = {
+  quests: 'Quests', achievements: 'Erfolge', daily: 'Tagesbelohnung', anticheat: 'Anti-Cheat',
+  talents: 'Talentbaum', weather: 'Tag/Nacht', boss: 'Boss-Kampf', trading: 'Handel',
+  wordgame: 'Wortspiel', fishing: 'Angeln', crafting: 'Crafting', guilds: 'Gilden',
+  seasonpass: 'Season-Pass', dialogue: 'Dialoge', leaderboard: 'Bestenliste', tutorial: 'Tutorial',
+};
+
 function renderProject() {
   const project = state.current;
   if (!project) {
@@ -335,6 +342,7 @@ function renderProject() {
           <span class="tag purple">${esc(project.spec?.qualityLabel || 'Hoch')}</span>
           <span class="tag">${esc(project.spec?.speedLabel || 'Normal')}</span>
           <span class="tag">${esc(project.source?.type === 'link' ? 'Nachbau' : 'Beschreibung')}</span>
+          <span class="tag ok">${(project.systems || []).length} Systeme</span>
         </div>
       </div>
       <div class="btn-row">
@@ -417,7 +425,7 @@ function renderProject() {
             <div class="divider"></div>
             <div class="section-title">Aktive Systeme</div>
             <div class="meta-row">
-              ${(project.systems || []).map((s) => `<span class="tag">${esc(s)}</span>`).join('')}
+              ${(project.systems || []).map((s) => `<span class="tag">${esc(SYSTEM_LABELS[s] || s)}</span>`).join('')}
             </div>` : ''}
         </article>
 

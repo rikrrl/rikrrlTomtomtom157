@@ -273,3 +273,21 @@ test('Tempo-Regler erzeugt echte Zusatzarbeit und mehr Inhalt', () => {
   assertWellFormedXml(serializeRbxlx(slowProject.services));
   assert.ok(validateBuild(slowProject, slow.spec).score >= 80, 'Ausgiebiges Spiel muss die Prüfung bestehen');
 });
+
+test('Neue Funktionen: Angeln, Crafting, Gilden, Season-Pass und Dialoge sind eingebaut', () => {
+  const prompt = 'Erstelle ein Simulator-Spiel mit Pets, Coins, Shops, Angeln, Crafting, Gilden und Season-Pass.';
+  const { spec } = analyzePrompt(prompt, { quality: 'meister' });
+  const project = generateProject(spec);
+  const xml = serializeRbxlx(project.services);
+  assertWellFormedXml(xml);
+
+  for (const name of ['FishingService', 'CraftingService', 'GuildService', 'SeasonPassService', 'DialogueService']) {
+    assert.ok(xml.includes(name), name + ' fehlt im Export');
+  }
+  assert.ok(project.systems.length >= 14, 'Meister muss viele Systeme aktivieren (' + project.systems.length + ')');
+  assert.ok(spec.features.fishing && spec.features.crafting && spec.features.guilds && spec.features.seasonpass,
+    'Die Beschreibung muss die neuen Funktionen erkennen');
+
+  const validation = validateBuild(project, spec);
+  assert.ok(validation.score >= 80, 'Pruefung muss bestehen (' + validation.score + ')');
+});
