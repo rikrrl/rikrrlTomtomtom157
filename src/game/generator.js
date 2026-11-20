@@ -849,7 +849,8 @@ function buildThemeProp(kind, pos, rng, palette) {
     default:
       props.push(buildRock([0, 0, 0], rng, palette));
   }
-  return model(`Theme_${kind}`, translate(props, pos));
+  const moved = translate(props, pos);
+  return model(`Theme_${kind}`, Array.isArray(moved) ? moved : [moved]);
 }
 
 function buildZone(zone, palette, rng, index, detail, theme) {
