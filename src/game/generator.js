@@ -908,6 +908,7 @@ function buildZone(zone, palette, rng, index, detail, theme) {
 export function generateProject(spec) {
   const rng = mulberry32((spec.seed || hashSeed(spec.title || 'game')) ^ 0x9e3779b9);
   const genre = GENRES[spec.genre] || GENRES.simulator;
+  const theme = THEMES[spec.themeKey] || THEMES.default;
   const palette = { ...genre.palette, ...theme.palette, ...(spec.palette || {}) };
   const mapInfo = MAP_SIZES[spec.mapSize] || MAP_SIZES.mittel;
   const quality = qualityProfile(spec);
