@@ -292,7 +292,7 @@ function titleFromText(text, genre, themeKey = 'default') {
 }
 
 /** Explizit genannte Zonen: "Zonen: Wald, Strand, Höhle" oder "mit den Gebieten ...". */
-function explicitZoneNames(text) {
+export function explicitZoneNames(text) {
   const raw = String(text || '');
   const match = raw.match(/(?:zonen?|gebiete?|inseln?|bereiche?|welten?|biome?|regionen?)\s*[:\-–]\s*([^.;\n]+)/i)
     || raw.match(/(?:mit|aus)\s+(?:den\s+|diesen\s+)?(?:zonen|gebieten|inseln|bereichen|biomen)\s+([^.;\n]+)/i);
@@ -583,11 +583,19 @@ export function applyChatInstruction(message, project) {
 
   if (changes.length === 0) {
     // Fallback: Anweisung als Design-Notiz übernehmen, damit nichts verloren geht
+    const extra = extractKeywords(message).slice(0, 4);
     const note = String(message).trim().slice(0, 200);
     spec.notes = Array.isArray(spec.notes) ? spec.notes : [];
     spec.notes.push(note);
-    changes.push('Design-Notiz im Projekt gespeichert');
-    reply = `Ich habe deine Anweisung als Design-Notiz übernommen: "${note}". Sage mir konkreter, was ich bauen soll (z. B. "mehr Pets", "größere Map", "Farbe pink", "mehr Shops", "Genre Horror"), dann ändere ich die passenden Systeme.`;
+    if (extra.length > 0) {
+      spec.keywords = [...new Set([...(spec.keywords || []), ...extra])].slice(0, 10);
+      spec.seed = (spec.seed || 1) + 3;
+      changes.push(`Neue Inhalte aus deiner Anweisung eingebaut: ${extra.join(', ')}`);
+      reply = `Erledigt. Ich habe dein bestehendes Projekt um deine Inhalte erweitert:\n${changes.map((c) => `• ${c}`).join('\n')}\n\nDie neuen Inhalte stehen als eigene Shops und Bauteile in der Welt. Du kannst die neue Version direkt exportieren.`;
+    } else {
+      changes.push('Design-Notiz im Projekt gespeichert');
+      reply = `Ich habe deine Anweisung als Design-Notiz übernommen: "${note}". Nenne mir konkrete Inhalte (z. B. "Drachen, Vulkan, Flugzeug, Schule") oder sage "mehr Pets", "größere Map", "Farbe pink" – dann baue ich es direkt ein.`;
+    }
   } else {
     spec.seed = (spec.seed || 1) + 7; // neue Variation, gleiche Basis
     reply = `Erledigt. Ich habe dein bestehendes Projekt weiterbearbeitet:\n${changes.map((c) => `• ${c}`).join('\n')}\n\nDie Karte, Skripte und Systeme wurden neu erzeugt – Fortschritt, Idee und alle bisherigen Einstellungen bleiben erhalten. Du kannst die neue Version direkt exportieren.`;
