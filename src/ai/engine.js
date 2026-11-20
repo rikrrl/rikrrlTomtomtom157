@@ -251,7 +251,7 @@ const GENERIC_TITLE_WORDS = new Set([
   'sprechenden', 'sprechende', 'grosser', 'großer', 'grosse', 'große',
   'zonen', 'zone', 'gebiete', 'gebieten', 'bereiche', 'bereich', 'biome', 'biom', 'regionen',
   'inseln', 'insel', 'welten', 'welt', 'karte', 'verlassenen', 'verlassen', 'grossen', 'großen',
-  'kleinen', 'alten', 'neuen', 'genannten', 'folgenden',
+  'kleinen', 'alten', 'neuen', 'genannten', 'folgenden', 'open', 'world', 'spielwelt',
 ]);
 
 /**
@@ -275,7 +275,7 @@ function titleFromText(text, genre, themeKey = 'default') {
       generic: GENERIC_TITLE_WORDS.has(w) ? 1 : 0,
       themeWord: theme.keywords.some((k) => w.startsWith(k.slice(0, 4))) ? 1 : 0,
     }))
-    .sort((a, b) => (a.themeWord - b.themeWord) || (a.generic - b.generic) || (a.i - b.i));
+    .sort((a, b) => (b.themeWord - a.themeWord) || (a.generic - b.generic) || (a.i - b.i));
 
   const core = [];
   for (const entry of scored) {
