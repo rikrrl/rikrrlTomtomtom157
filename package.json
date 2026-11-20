@@ -5,7 +5,7 @@
   "type": "module",
   "description": "KI-Entwickler für Roblox Studio: Spiele aus Text oder Link erzeugen, mit Chat weiterbearbeiten und als .rbxlx/.rbxl exportieren.",
   "engines": {
-    "node": ">=22"
+    "node": ">=20"
   },
   "scripts": {
     "start": "node server.js",
@@ -13,6 +13,6 @@
     "test": "node --test tests/"
   },
   "dependencies": {
-    "express": "^4.21.2"
+    "express": "^5.3.0"
   }
 }
