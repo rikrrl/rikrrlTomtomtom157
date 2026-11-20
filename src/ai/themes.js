@@ -117,6 +117,18 @@ export const THEMES = {
     pets: ['Wüstenfuchs', 'Sandechse', 'Kamel', 'Skorpion', 'Geierfalke', 'Pharaonenkatze', 'Sandwurm', 'Miragegeist'],
     npcs: ['Händler Samir', 'Forscherin Leyla', 'Karawanenführer Omar', 'Wächterin Nefra', 'Wasserhändler Tarek', 'Kartografin Zara'],
   },
+  horror: {
+    key: 'horror',
+    label: 'Horror',
+    adjective: 'Albtraum',
+    keywords: ['horror', 'grusel', 'krankenhaus', 'klinik', 'keller', 'dachboden', 'leichenhalle', 'verlassen', 'albtraum', 'geisterhaus', 'zombie', 'monster', 'vampir', 'fluch'],
+    terrain: 'concrete',
+    decor: 'spooky',
+    palette: { accent: [220, 70, 90], accent2: [140, 110, 220], ground: [58, 56, 64], base: [40, 38, 46] },
+    zones: ['Eingangshalle', 'Keller', 'OP-Saal', 'Dachboden', 'Leichenhalle', 'Labor', 'Kapelle', 'Flur'],
+    pets: ['Spukkatze', 'Nebelgeist', 'Blutflügel-Fledermaus', 'Skelett-Hund', 'Schattenratte', 'Poltergeist', 'Vampirfledermaus', 'Zombie-Hamster'],
+    npcs: ['Nachtwächter Grimm', 'Geisterärztin Weiss', 'Pfleger Zombie', 'Medium Lila', 'Wächterin Nacht', 'Hausmeister Kralle'],
+  },
   halloween: {
     key: 'halloween',
     label: 'Halloween & Grusel',
@@ -169,7 +181,7 @@ export const THEMES = {
     key: 'stadt',
     label: 'Stadt',
     adjective: 'Stadt',
-    keywords: ['stadt', 'city', 'metropole', 'wohnung', 'büro', 'buero', 'polizei', 'feuerwehr', 'schule', 'krankenhaus', 'verlassen'],
+    keywords: ['stadt', 'city', 'metropole', 'wohnung', 'büro', 'buero', 'polizei', 'feuerwehr', 'schule', 'straße', 'strasse', 'bahnhof', 'viertel'],
     terrain: 'concrete',
     decor: 'urban',
     palette: { accent: [255, 180, 60], accent2: [90, 200, 255], ground: [90, 94, 104], base: [70, 74, 86] },
@@ -181,7 +193,7 @@ export const THEMES = {
 
 /** Reihenfolge der Prüfung: spezifische Themen vor allgemeinen. */
 const THEME_ORDER = [
-  'weihnachten', 'halloween', 'candy', 'wueste', 'eis', 'lava', 'unterwasser', 'weltraum',
+  'weihnachten', 'halloween', 'horror', 'candy', 'wueste', 'eis', 'lava', 'unterwasser', 'weltraum',
   'cyber', 'mittelalter', 'dschungel', 'bauernhof', 'stadt',
 ];
 

@@ -75,6 +75,7 @@ const STOP_WORDS = new Set([
   'spiel', 'game', 'roblox', 'studio', 'soll', 'sollen', 'ich', 'mir', 'mein', 'meine', 'will',
   'möchte', 'moechte', 'create', 'make', 'build', 'a', 'an', 'the', 'with', 'and', 'for', 'of',
   'to', 'my', 'me', 'please', 'spiel', 'wie', 'als', 'auch', 'sehr', 'viele', 'viel', 'gute', 'guten',
+  'einer', 'eines', 'einem', 'eine', 'einem', 'dieser', 'diese', 'dieses', 'werden', 'sollen',
 ]);
 
 function normalise(text) {
@@ -248,6 +249,9 @@ const GENERIC_TITLE_WORDS = new Set([
   'wird', 'werden', 'haben', 'hat', 'gibt', 'geben', 'sowie', 'noch', 'mehr', 'sehr', 'ganz',
   'schoen', 'schön', 'gross', 'groß', 'klein', 'mittel', 'alles', 'alle', 'viele', 'bisschen',
   'sprechenden', 'sprechende', 'grosser', 'großer', 'grosse', 'große',
+  'zonen', 'zone', 'gebiete', 'gebieten', 'bereiche', 'bereich', 'biome', 'biom', 'regionen',
+  'inseln', 'insel', 'welten', 'welt', 'karte', 'verlassenen', 'verlassen', 'grossen', 'großen',
+  'kleinen', 'alten', 'neuen', 'genannten', 'folgenden',
 ]);
 
 /**
@@ -277,7 +281,7 @@ function titleFromText(text, genre, themeKey = 'default') {
   for (const entry of scored) {
     if (core.includes(entry.w)) continue;
     core.push(entry.w);
-    if (core.length === 2) break;
+    if (core.length === 1) break;
   }
 
   const cap = (w) => w.charAt(0).toUpperCase() + w.slice(1);
