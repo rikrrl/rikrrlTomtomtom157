@@ -16,7 +16,7 @@ import {
 import {
   questServiceModule, achievementServiceModule, talentServiceModule, dailyServiceModule,
   tradeServiceModule, bossServiceModule, wordGameServiceModule, wordGameClientModule,
-  dayCycleModule, antiCheatModule, SYSTEM_CATALOG,
+  dayCycleModule, antiCheatModule, leaderboardServiceModule, tutorialServiceModule, SYSTEM_CATALOG,
 } from './systems.js';
 import { treeStats } from './rbxlx.js';
 
@@ -95,13 +95,26 @@ const MAP_SIZES = {
 
 /** Qualitätsprofile: steuern Detaildichte, Systemumfang und Anzahl der Prüfdurchläufe. */
 export const QUALITY_PROFILE = {
-  schnell: { level: 'schnell', label: 'Schnell', detail: 0.6, decor: 0.55, systems: 3, passes: 1, boards: 1 },
-  grundlich: { level: 'grundlich', label: 'Gründlich', detail: 1, decor: 1, systems: 6, passes: 2, boards: 2 },
-  maximal: { level: 'maximal', label: 'Maximal', detail: 1.6, decor: 1.75, systems: 9, passes: 3, boards: 3 },
+  basis: { level: 'basis', label: 'Basis', detail: 0.9, decor: 0.9, systems: 5, passes: 1, boards: 1 },
+  hoch: { level: 'hoch', label: 'Hoch', detail: 1.25, decor: 1.35, systems: 7, passes: 2, boards: 2 },
+  profi: { level: 'profi', label: 'Profi', detail: 1.7, decor: 1.95, systems: 9, passes: 3, boards: 3 },
+  meister: { level: 'meister', label: 'Meister', detail: 2.2, decor: 2.6, systems: 11, passes: 4, boards: 4 },
 };
 
+/** Alte Projekte (schnell/gründlich/maximal) bleiben vollständig baubar. */
+const LEGACY_QUALITY = { schnell: 'basis', grundlich: 'hoch', maximal: 'meister' };
+
 export function qualityProfile(spec) {
-  return QUALITY_PROFILE[spec?.quality] || QUALITY_PROFILE.grundlich;
+  const key = LEGACY_QUALITY[spec?.quality] || spec?.quality;
+  return QUALITY_PROFILE[key] || QUALITY_PROFILE.hoch;
+}
+
+/**
+ * Zusatzpässe aus dem Tempo-Regler (0-2). Jeder Pass erzeugt echte zusätzliche
+ * Inhalte: Marktstände, Lagerfeuer, Wachtürme, Deko-Ringe, Coin-Spots und NPCs.
+ */
+export function polishPassCount(spec) {
+  return Math.max(0, Math.min(4, Number(spec?.polishPasses) || 0));
 }
 
 function mulberry32(seed) {
@@ -622,6 +635,85 @@ function buildPuzzleStation(pos, palette, label) {
   ], { pos });
 }
 
+/** Marktstand für belebte Zonen (Zusatzpässe, hohe Detailstufen). */
+function buildMarketStall(pos, palette, round = 1) {
+  const [x, y, z] = pos;
+  const tint = round % 2 === 0 ? palette.accent2 : palette.accent;
+  const wood = [138, 102, 68];
+  return folder('MarketStall', [
+    part({ name: 'Counter', pos: [x, y + 1.5, z], size: [10, 3, 5], color: shade(palette.base, 1.4), material: 'wood' }),
+    part({ name: 'PostL', pos: [x - 4.6, y + 4, z - 2], size: [0.6, 5, 0.6], color: wood, material: 'wood' }),
+    part({ name: 'PostR', pos: [x + 4.6, y + 4, z - 2], size: [0.6, 5, 0.6], color: wood, material: 'wood' }),
+    part({ name: 'Canopy', pos: [x, y + 6.6, z], size: [11, 0.5, 6], color: tint, material: 'slate' }),
+    part({ name: 'Sign', pos: [x, y + 3.7, z + 2.7], size: [8, 1.6, 0.3], color: tint, material: 'neon', transparency: 0.1 }),
+    part({ name: 'CrateA', pos: [x + 3, y + 1.2, z + 1.6], size: [2, 2, 2], color: wood, material: 'wood' }),
+    part({ name: 'CrateB', pos: [x - 3.2, y + 1, z + 1.8], size: [1.6, 1.6, 1.6], color: shade(wood, 1.2), material: 'wood' }),
+  ]);
+}
+
+/** Lagerfeuer als Treffpunkt – sichtbares Licht, echte Kollision. */
+function buildCampfire(pos, palette) {
+  const [x, y, z] = pos;
+  const stone = shade(palette.base, 0.85);
+  const children = [
+    part({ name: 'FireGlow', pos: [x, y + 0.6, z], size: [3, 0.6, 3], color: [255, 138, 48], material: 'neon', transparency: 0.15, canCollide: false }),
+    part({ name: 'Ember', pos: [x, y + 1.4, z], size: [1.6, 1.6, 1.6], color: [255, 96, 32], material: 'neon', transparency: 0.25, canCollide: false }),
+  ];
+  for (let i = 0; i < 6; i++) {
+    const angle = (i / 6) * Math.PI * 2;
+    children.push(part({
+      name: `Stone_${i + 1}`,
+      pos: [x + Math.cos(angle) * 2.4, y + 0.4, z + Math.sin(angle) * 2.4],
+      size: [1.2, 0.8, 1.2],
+      color: stone,
+      material: 'slate',
+    }));
+  }
+  for (let i = 0; i < 3; i++) {
+    children.push(part({
+      name: `Log_${i + 1}`,
+      pos: [x, y + 0.7, z],
+      size: [3.4, 0.7, 0.7],
+      color: [112, 82, 52],
+      material: 'wood',
+      rotY: i * 60,
+    }));
+  }
+  return folder('Campfire', children);
+}
+
+/** Wachturm mit Aussichtsplattform und Flagge. */
+function buildWatchtower(pos, palette, round = 1) {
+  const [x, y, z] = pos;
+  const beam = shade(palette.base, 1.15);
+  const tint = round % 2 === 0 ? palette.accent : palette.accent2;
+  const children = [];
+  const offsets = [[-2.6, -2.6], [2.6, -2.6], [-2.6, 2.6], [2.6, 2.6]];
+  offsets.forEach(([dx, dz], index) => {
+    children.push(part({ name: `Leg_${index + 1}`, pos: [x + dx, y + 6, z + dz], size: [0.8, 12, 0.8], color: beam, material: 'wood' }));
+  });
+  children.push(part({ name: 'Deck', pos: [x, y + 12, z], size: [7.5, 0.6, 7.5], color: beam, material: 'wood' }));
+  children.push(part({ name: 'Roof', pos: [x, y + 16, z], size: [8.5, 0.6, 8.5], color: tint, material: 'slate' }));
+  children.push(part({ name: 'FlagPole', pos: [x, y + 18.4, z], size: [0.3, 4, 0.3], color: beam, material: 'metal' }));
+  children.push(part({ name: 'Flag', pos: [x + 1.2, y + 19.6, z], size: [2.4, 1.4, 0.2], color: tint, material: 'neon', transparency: 0.1 }));
+  return folder('Watchtower', children);
+}
+
+/**
+ * Anzeigetafel für die globale Bestenliste. Die Fläche heißt "LeaderboardPanel"
+ * und wird von LeaderboardService zur Laufzeit mit Text versehen.
+ */
+function buildLeaderboard(pos, palette) {
+  const [x, y, z] = pos;
+  return folder('Leaderboard', [
+    part({ name: 'PostL', pos: [x - 7, y + 5, z], size: [0.8, 10, 0.8], color: shade(palette.base, 0.9), material: 'metal' }),
+    part({ name: 'PostR', pos: [x + 7, y + 5, z], size: [0.8, 10, 0.8], color: shade(palette.base, 0.9), material: 'metal' }),
+    part({ name: 'Header', pos: [x, y + 11, z], size: [16, 2.2, 0.6], color: palette.accent, material: 'neon', transparency: 0.05 }),
+    part({ name: 'LeaderboardPanel', pos: [x, y + 5.6, z], size: [15, 8, 0.4], color: shade(palette.base, 1.5), material: 'slate' }),
+    part({ name: 'Frame', pos: [x, y + 5.6, z - 0.3], size: [16, 9, 0.3], color: palette.accent2, material: 'neon', transparency: 0.35 }),
+  ]);
+}
+
 function buildZone(zone, palette, rng, index, detail) {
   const [cx, cz] = zone.center;
   const children = [
@@ -896,6 +988,62 @@ export function generateProject(spec) {
     mapChildren.push(arena);
   }
 
+  // Anzeigetafel der Bestenliste + Zusatzpässe aus dem Tempo-Regler
+  mapChildren.push(buildLeaderboard([-26, 1.6, -14], palette));
+  mapChildren.push(buildMarketStall([26, 1.6, -14], palette, 1));
+  mapChildren.push(buildCampfire([0, 1.6, 30], palette));
+
+  const polishPasses = polishPassCount(spec);
+  for (let pass = 0; pass < polishPasses; pass++) {
+    const round = pass + 1;
+    // Marktstände, Lagerfeuer und Wachtürme in jeder Zone
+    zones.forEach((zone) => {
+      const [cx, cz] = zone.center;
+      const spread = zone.size * 0.34;
+      interactive.children.push(buildMarketStall([cx + spread, 1.6, cz - spread], palette, round));
+      interactive.children.push(buildCampfire([cx - spread, 1.6, cz - spread], palette));
+      if (round >= 2) {
+        interactive.children.push(buildWatchtower([cx - spread, 1.6, cz + spread], palette, round));
+      }
+    });
+
+    // Deko-Ring um die Plaza: Bäume, Laternen, Blumen, Steine
+    const ringCount = 8 + round * 2;
+    for (let i = 0; i < ringCount; i++) {
+      const angle = (i / ringCount) * Math.PI * 2 + round;
+      const radius = 36 + round * 7;
+      const dx = Math.cos(angle) * radius;
+      const dz = Math.sin(angle) * radius;
+      const kind = i % 4;
+      if (kind === 0) mapChildren.push(buildTree([dx, 1.6, dz], rng, palette));
+      else if (kind === 1) mapChildren.push(buildLamp([dx, 1.6, dz], palette));
+      else if (kind === 2) mapChildren.push(buildFlowers([dx, 1.6, dz], rng, palette));
+      else mapChildren.push(buildRock([dx, 1.6, dz], rng, palette));
+    }
+
+    // Mehr Coin-Spots pro Zusatzpass
+    const extraCoins = 14 * round;
+    for (let i = 0; i < extraCoins; i++) {
+      const angle = rng() * Math.PI * 2;
+      const radius = 12 + rng() * (half * 0.78);
+      coinSpots.children.push(part({
+        name: `CoinSpot_P${round}_${i + 1}`,
+        pos: [Math.cos(angle) * radius, 3, Math.sin(angle) * radius],
+        size: [2, 2, 2],
+        color: palette.accent2,
+        transparency: 1,
+        canCollide: false,
+      }));
+    }
+
+    // Zusätzliche NPCs an den Wegen
+    if (config.npcs.length) {
+      const zone = zones[pass % zones.length];
+      const npc = config.npcs[pass % config.npcs.length];
+      npcs.children.push(buildNpc({ ...npc, name: `${npc.name} ${round}` }, [zone.center[0] - 10, 1.6, zone.center[1] + 20], palette));
+    }
+  }
+
   const workspaceNode = inst('Workspace', 'Workspace', {
     FilteringEnabled: { t: 'bool', v: true },
     StreamingEnabled: { t: 'bool', v: false },
@@ -919,6 +1067,7 @@ export function generateProject(spec) {
     inst('RemoteEvent', 'TradeRequest'), inst('RemoteEvent', 'TradeComplete'),
     inst('RemoteEvent', 'WordRound'), inst('RemoteEvent', 'WordSubmit'), inst('RemoteEvent', 'WordStart'),
     inst('RemoteEvent', 'WordSolved'), inst('RemoteEvent', 'WordWrong'),
+    inst('RemoteEvent', 'LeaderboardUpdate'), inst('RemoteEvent', 'TutorialStep'),
   ]);
 
   const shared = folder('Shared', [
@@ -939,6 +1088,8 @@ export function generateProject(spec) {
     { id: 'boss', node: () => serverScript('BossService', bossServiceModule(spec, config)) },
     { id: 'trading', node: () => serverScript('TradeService', tradeServiceModule(spec, config)) },
     { id: 'wordgame', node: () => serverScript('WordGameService', wordGameServiceModule(spec, config)) },
+    { id: 'leaderboard', node: () => serverScript('LeaderboardService', leaderboardServiceModule(spec, config)) },
+    { id: 'tutorial', node: () => serverScript('TutorialService', tutorialServiceModule(spec, config)) },
   ];
   const activeSystems = systemBuilders
     .filter((entry, index) => index < quality.systems || (entry.id === 'wordgame' && isWordGame))
