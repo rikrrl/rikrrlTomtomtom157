@@ -14,6 +14,7 @@ const GENRE_KEYWORDS = {
   rpg: ['rpg', 'rollenspiel', 'fantasy', 'magie', 'dungeon', 'levelsystem', 'krieger', 'zauber', 'inventar'],
   pets: ['pets', 'pet', 'haustier', 'haustiere', 'tiere', 'tier', 'begleiter'],
   battle: ['pvp', 'kampf', 'arena', 'battle royale', 'battleroyale', 'shooter', 'waffen', 'fight'],
+  wortspiel: ['wortspiel', 'wörter spiel', 'wörter-spiel', 'wörter', 'worträtsel', 'wort ratsel', 'scrabble', 'kreuzworträtsel', 'kreuzwort', 'hangman', 'galgenmännchen', 'galgenmannchen', 'word game', 'wordgame', 'buchstaben', 'vokabel'],
 };
 
 const FEATURE_KEYWORDS = {
@@ -29,6 +30,13 @@ const FEATURE_KEYWORDS = {
   combat: ['kampf', 'kämpfen', 'combat', 'angriff', 'schaden', 'hp', 'leben'],
   inventory: ['inventar', 'inventory', 'items', 'gegenstände'],
   leaderboard: ['rangliste', 'leaderboard', 'highscore', 'bestenliste'],
+  achievements: ['achievement', 'achievements', 'erfolg', 'erfolge', 'trophäe', 'trophäen', 'badges'],
+  talents: ['talent', 'talente', 'skill', 'skills', 'fähigkeiten', 'faehigkeiten', 'talentbaum', 'skilltree'],
+  trading: ['trading', 'handel', 'handeln', 'tauschen', 'trade'],
+  daily: ['daily', 'täglich', 'taeglich', 'tagesbelohnung', 'streak', 'login bonus'],
+  boss: ['boss', 'bossfight', 'endgegner', 'raid'],
+  weather: ['wetter', 'weather', 'tag nacht', 'tageszeit', 'day night'],
+  wordgame: ['wortspiel', 'wörter', 'worträtsel', 'scrabble', 'kreuzworträtsel', 'hangman', 'word game'],
 };
 
 const SIZE_KEYWORDS = [
@@ -135,6 +143,25 @@ export function detectColors(text) {
   return COLOR_KEYWORDS.filter((c) => t.includes(c.name)).map((c) => c.rgb);
 }
 
+/**
+ * Qualitätsstufen: bestimmen Detaildichte, Anzahl der Systeme und die Rechenzeit.
+ * "Die KI lässt sich Zeit" ist hier eine echte Größe, keine Anzeige-Attrappe.
+ */
+export const QUALITY_LEVELS = {
+  schnell: { level: 'schnell', label: 'Schnell', detail: 0.6, decor: 0.55, systems: 3, zoneCap: 4, passes: 1, seconds: 1 },
+  grundlich: { level: 'grundlich', label: 'Gründlich', detail: 1, decor: 1, systems: 6, zoneCap: 6, passes: 2, seconds: 5 },
+  maximal: { level: 'maximal', label: 'Maximal', detail: 1.6, decor: 1.75, systems: 9, zoneCap: 8, passes: 3, seconds: 10 },
+};
+
+export function detectQuality(text) {
+  const t = normalise(text);
+  if (/(maximal|maximum|ultra|episch|perfekt|beste|best|so gut wie moeglich|so gut wie möglich|detailreich|so detailliert)/.test(t)) {
+    return QUALITY_LEVELS.maximal;
+  }
+  if (/(schnell|quick|sofort|mal eben|kurz|simpel|einfach nur)/.test(t)) return QUALITY_LEVELS.schnell;
+  return QUALITY_LEVELS.grundlich;
+}
+
 function titleFromText(text, genre) {
   const words = normalise(text)
     .replace(/[^a-zäöüß0-9\s]/gi, ' ')
@@ -187,6 +214,7 @@ export function analyzePrompt(text, options = {}) {
   const npcHint = countMentions(raw, ['npc', 'npcs', 'händler', 'charakter', 'bewohner']);
   const petHint = countMentions(raw, ['pet', 'pets', 'haustier', 'haustiere', 'tier', 'tiere']);
 
+  const quality = options.quality ? (QUALITY_LEVELS[options.quality] || QUALITY_LEVELS.grundlich) : detectQuality(raw);
   const mapSize = size || (features.pets && /groß|big|riesig|huge/.test(normalise(raw)) ? 'groß' : 'mittel');
 
   const spec = {
@@ -198,10 +226,12 @@ export function analyzePrompt(text, options = {}) {
     version: '1.0.0',
     features,
     mapSize,
-    zoneCount: Math.max(2, Math.min(6, zoneHint || (mapSize === 'riesig' ? 6 : mapSize === 'groß' ? 5 : 4))),
-    shopCount: Math.max(2, Math.min(6, Math.max(shopHint || 0, features.shops ? 4 : 2))),
-    npcCount: Math.max(2, Math.min(5, npcHint || (features.npcs ? 4 : 3))),
-    petCount: features.pets ? Math.max(6, Math.min(8, petHint || 6)) : Math.max(2, Math.min(4, petHint || 3)),
+    quality: quality.level,
+    qualityLabel: quality.label,
+    zoneCount: Math.max(2, Math.min(quality.zoneCap, zoneHint || (mapSize === 'riesig' ? 7 : mapSize === 'groß' ? 6 : 5))),
+    shopCount: Math.max(2, Math.min(7, Math.max(shopHint || 0, features.shops ? 5 : 3))),
+    npcCount: Math.max(2, Math.min(7, npcHint || (features.npcs ? 5 : 4))),
+    petCount: features.pets ? Math.max(6, Math.min(10, petHint || 8)) : Math.max(2, Math.min(5, petHint || 4)),
     difficulty: /schwer|hard|brutal|schwierig/.test(normalise(raw)) ? 'schwer'
       : /leicht|easy|entspannt|chill/.test(normalise(raw)) ? 'leicht' : 'normal',
     theme: raw.slice(0, 120),
@@ -223,6 +253,7 @@ export function analyzePrompt(text, options = {}) {
       `Genre erkannt: ${(GENRES[genre] || GENRES.simulator).label}`,
       `Kartengröße: ${mapSize} mit ${spec.zoneCount} Zonen`,
       `Shops: ${spec.shopCount}, NPCs: ${spec.npcCount}${features.pets ? `, Pets: ${spec.petCount}` : ''}`,
+      `Qualitätsstufe: ${quality.label} (${quality.systems} Systeme, ${quality.passes} Prüfdurchläufe)`,
     ],
   };
 
@@ -278,11 +309,24 @@ export function applyChatInstruction(message, project) {
   }
 
   // Mengen
-  if (/(mehr|more|größer|groesser|bigger)\s+(pets|haustiere|tiere)/.test(text)) bump('petCount', 2, 3, 8, 'Pets');
-  if (/(weniger|fewer|less)\s+(pets|haustiere)/.test(text)) bump('petCount', -2, 3, 8, 'Pets');
-  if (/(mehr|more)\s+(shops|läden|laeden)/.test(text)) bump('shopCount', 1, 2, 5, 'Shops');
-  if (/(mehr|more)\s+(zonen|zones|gebiete|inseln)/.test(text)) bump('zoneCount', 1, 2, 6, 'Zonen');
-  if (/(mehr|more)\s+(npcs|händler|haendler)/.test(text)) bump('npcCount', 1, 2, 5, 'NPCs');
+  if (/(mehr|more|größer|groesser|bigger)\s+(pets|haustiere|tiere)/.test(text)) bump('petCount', 2, 3, 10, 'Pets');
+  if (/(weniger|fewer|less)\s+(pets|haustiere)/.test(text)) bump('petCount', -2, 3, 10, 'Pets');
+  if (/(mehr|more)\s+(shops|läden|laeden)/.test(text)) bump('shopCount', 1, 2, 7, 'Shops');
+  if (/(mehr|more)\s+(zonen|zones|gebiete|inseln)/.test(text)) bump('zoneCount', 1, 2, 8, 'Zonen');
+  if (/(mehr|more)\s+(npcs|händler|haendler)/.test(text)) bump('npcCount', 1, 2, 7, 'NPCs');
+
+  // Qualität / Detailtiefe erhöhen
+  if (/(besser|mehr details|mehr inhalt|mehr systeme|mehr tiefe|ausführlicher|ausfuehrlicher|hübscher|huebscher|aufwendiger|mehr liebe)/.test(text)) {
+    const order = ['schnell', 'grundlich', 'maximal'];
+    const current = order.indexOf(spec.quality || 'grundlich');
+    if (current < order.length - 1) {
+      spec.quality = order[current + 1];
+      changes.push(`Qualitätsstufe: ${spec.quality}`);
+    } else {
+      spec.seed = (spec.seed || 1) + 13;
+      changes.push('Zusätzliche Detail- und Variationsstufe erzeugt');
+    }
+  }
 
   // Kartengröße
   const sizeHit = detectSize(message);
