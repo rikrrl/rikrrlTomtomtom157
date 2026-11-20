@@ -8,7 +8,14 @@ const state = {
   draftPrompt: '',
   draftUrl: '',
   linkInfo: '',
+  quality: 'grundlich',
 };
+
+const QUALITY_OPTIONS = [
+  { id: 'schnell', label: 'Schnell', note: '~1 s · 3 Systeme' },
+  { id: 'grundlich', label: 'Gründlich', note: '~5 s · 6 Systeme' },
+  { id: 'maximal', label: 'Maximal', note: '~12 s · 9 Systeme' },
+];
 
 const EXAMPLES = [
   'Erstelle ein Simulator-Spiel mit Pets, Coins, Shops und einer großen Map.',
@@ -16,6 +23,7 @@ const EXAMPLES = [
   'Erstelle ein Horror-Spiel mit dunkler Map, Monstern und Quests.',
   'Erstelle ein Open-World-Spiel mit vier Regionen, NPCs und Shops.',
   'Erstelle ein RPG mit Levelsystem, Inventar, Quests und Dungeon.',
+  'Erstelle ein Wortspiel mit Buchstabenrätseln, Punkten und Rangliste.',
 ];
 
 const CHAT_SUGGESTIONS = [
@@ -129,9 +137,16 @@ function renderHome() {
         <div class="chips" id="examples">
           ${EXAMPLES.map((example) => `<button class="chip" data-example="${esc(example)}">${esc(example.split(' ').slice(0, 4).join(' '))}…</button>`).join('')}
         </div>
+        <div class="quality-picker" id="quality-picker">
+          <span class="qp-label">Qualität</span>
+          ${QUALITY_OPTIONS.map((option) => `
+            <button class="qp-btn ${state.quality === option.id ? 'active' : ''}" data-quality="${option.id}">
+              <strong>${option.label}</strong><span>${option.note}</span>
+            </button>`).join('')}
+        </div>
         <div class="btn-row">
           <button class="btn" id="create-prompt" ${state.busy ? 'disabled' : ''}>Spiel erstellen</button>
-          <span class="hint">${state.busy ? 'Die KI baut dein Spiel …' : 'Dauert wenige Sekunden'}</span>
+          <span class="hint">${state.busy ? 'Die KI arbeitet die Phasen durch …' : 'Die KI lässt sich Zeit und prüft ihr Ergebnis'}</span>
         </div>
       </article>
 
@@ -166,6 +181,12 @@ function renderHome() {
     });
   });
   document.getElementById('create-prompt').addEventListener('click', () => createFromPrompt());
+  document.querySelectorAll('[data-quality]').forEach((button) => {
+    button.addEventListener('click', () => {
+      state.quality = button.dataset.quality;
+      renderHome();
+    });
+  });
 
   const linkInput = document.getElementById('link-input');
   linkInput.addEventListener('input', (event) => {
@@ -278,6 +299,7 @@ function renderProject() {
           <span class="tag">Version ${esc(project.version)}</span>
           <span class="tag">${esc(project.spec?.mapSize || 'mittel')}e Map</span>
           <span class="tag">${esc(project.zoneCount || project.spec?.zoneCount || 0)} Zonen</span>
+          <span class="tag purple">${esc(project.spec?.qualityLabel || 'Gründlich')}</span>
           <span class="tag">${esc(project.source?.type === 'link' ? 'Nachbau' : 'Beschreibung')}</span>
         </div>
       </div>
@@ -296,10 +318,19 @@ function renderProject() {
           <div class="progress"><div style="width:${progress}%"></div></div>
           <div class="stages">
             ${stages.map((stage) => `
-              <div class="stage ${stage.status === 'done' ? 'done' : ''}">
-                <span class="s-ico">${stage.status === 'done' ? '✓' : '•'}</span>${esc(stage.label)}
+              <div class="stage ${stage.status === 'done' ? 'done' : ''} ${stage.status === 'running' ? 'running' : ''}">
+                <span class="s-ico">${stage.status === 'done' ? '✓' : stage.status === 'running' ? '◐' : '•'}</span>
+                <span class="s-label">${esc(stage.label)}</span>
+                <span class="s-ms">${stage.ms ? `${(stage.ms / 1000).toFixed(1)}s` : ''}</span>
               </div>`).join('')}
           </div>
+          ${project.validation ? `
+            <div class="divider"></div>
+            <div class="progress-label"><span>Qualitätsprüfung der KI</span><span>${project.validation.score}/100</span></div>
+            <div class="progress"><div style="width:${project.validation.score}%"></div></div>
+            <div class="check-list">
+              ${(project.validation.checks || []).map((c) => `<span class="check ${c.ok ? 'ok' : 'bad'}">${c.ok ? '✓' : '!'} ${esc(c.label)}</span>`).join('')}
+            </div>` : ''}
         </article>
 
         <article class="card">
@@ -331,7 +362,14 @@ function renderProject() {
             <div class="stat"><span class="v">${fmt(stats.scriptLines)}</span><span class="k">Zeilen Luau</span></div>
             <div class="stat"><span class="v">${fmt(stats.models)}</span><span class="k">Modelle</span></div>
             <div class="stat"><span class="v">${fmt(project.spec?.shopCount)}</span><span class="k">Shops</span></div>
+            <div class="stat"><span class="v">${fmt((project.systems || []).length)}</span><span class="k">Systeme</span></div>
           </div>
+          ${(project.systems || []).length ? `
+            <div class="divider"></div>
+            <div class="section-title">Aktive Systeme</div>
+            <div class="meta-row">
+              ${(project.systems || []).map((s) => `<span class="tag">${esc(s)}</span>`).join('')}
+            </div>` : ''}
         </article>
 
         <article class="card">
@@ -445,7 +483,7 @@ async function createFromPrompt() {
   state.busy = true;
   render();
   try {
-    const data = await api('/api/projects', { method: 'POST', body: { mode: 'prompt', prompt } });
+    const data = await api('/api/projects', { method: 'POST', body: { mode: 'prompt', prompt, quality: state.quality } });
     state.current = data.project;
     state.view = 'project';
     state.draftPrompt = '';
@@ -490,7 +528,7 @@ async function createFromLink() {
   state.busy = true;
   render();
   try {
-    const data = await api('/api/projects', { method: 'POST', body: { mode: 'link', url } });
+    const data = await api('/api/projects', { method: 'POST', body: { mode: 'link', url, quality: state.quality } });
     state.current = data.project;
     state.view = 'project';
     state.draftUrl = '';
