@@ -371,8 +371,8 @@ export function analyzePrompt(text, options = {}) {
   const themeKey = detectTheme(raw);
   const theme = THEMES[themeKey] || THEMES.default;
   const seedValue = hashText([raw.toLowerCase(), quality.level, speed.level, options.salt || ''].join('|'));
-  const plannedZones = Math.max(2, Math.min(quality.zoneCap, zoneHint || (mapSize === 'riesig' ? 7 : mapSize === 'groß' ? 6 : 5)));
   const explicitZones = explicitZoneNames(raw);
+  const plannedZones = Math.max(2, Math.min(quality.zoneCap, explicitZones.length >= 2 ? explicitZones.length : (zoneHint || (mapSize === 'riesig' ? 7 : mapSize === 'groß' ? 6 : 5))));
   const zoneNames = explicitZones.length >= 2
     ? explicitZones.slice(0, plannedZones)
     : zoneNamesFor(themeKey, (GENRES[genre] || GENRES.simulator).zoneNames, seedValue, plannedZones);

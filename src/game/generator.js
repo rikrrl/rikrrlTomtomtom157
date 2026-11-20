@@ -803,17 +803,25 @@ function buildThemeProp(kind, pos, rng, palette) {
     case 'space':
       props.push(part({ name: 'Crystal', pos: [0, 3.5, 0], size: [2.4, 7, 2.4], color: [180, 150, 255], material: 'glass', shape: 'cylinder', transparency: 0.15, children: [pointLight('CrystalGlow', [170, 140, 255], 2, 18)] }));
       break;
+    case 'jungle':
+      props.push(part({ name: 'JungleTrunk', pos: [0, 3, 0], size: [2.4, 6, 2.4], color: [96, 68, 44], material: 'wood', shape: 'cylinder' }));
+      props.push(part({ name: 'JungleLeaves', pos: [0, 7, 0], size: [7, 3, 7], color: [46, 140, 70], material: 'grass', shape: 'ball' }));
+      break;
+    case 'castle':
     case 'medieval':
       props.push(part({ name: 'Barrel', pos: [0, 1.6, 0], size: [3, 3.2, 3], color: [120, 84, 48], material: 'wood', shape: 'cylinder' }));
       props.push(part({ name: 'Crate', pos: [3.4, 1.2, 1], size: [2.6, 2.4, 2.6], color: [140, 100, 58], material: 'wood' }));
       break;
+    case 'neon':
     case 'cyber':
       props.push(part({ name: 'DataPylon', pos: [0, 5, 0], size: [2, 10, 2], color: [24, 26, 40], material: 'metal', children: [part({ name: 'PylonNeon', pos: [0, 5.4, 0], size: [2.4, 0.6, 2.4], color: palette.accent, material: 'neon', transparency: 0.1 })] }));
       break;
+    case 'sand':
     case 'desert':
       props.push(part({ name: 'Cactus', pos: [0, 3, 0], size: [2.2, 6, 2.2], color: [86, 140, 72], material: 'grass', shape: 'cylinder' }));
       props.push(part({ name: 'CactusArm', pos: [1.8, 4, 0], size: [2.4, 1.4, 1.4], color: [86, 140, 72], material: 'grass', shape: 'cylinder' }));
       break;
+    case 'reef':
     case 'ocean':
       props.push(part({ name: 'Coral', pos: [0, 2, 0], size: [3, 4, 3], color: [255, 120, 160], material: 'neon', shape: 'ball', transparency: 0.2 }));
       props.push(part({ name: 'Shell', pos: [3.2, 1, 1], size: [2, 1, 2], color: [255, 220, 190], material: 'concrete', shape: 'ball' }));
@@ -821,6 +829,22 @@ function buildThemeProp(kind, pos, rng, palette) {
     case 'candy':
       props.push(part({ name: 'CandyPole', pos: [0, 3.5, 0], size: [1.6, 7, 1.6], color: [255, 170, 210], material: 'neon', shape: 'cylinder' }));
       props.push(part({ name: 'CandyTop', pos: [0, 7.4, 0], size: [3.4, 1.2, 3.4], color: [255, 240, 250], material: 'glass', shape: 'ball', transparency: 0.2 }));
+      break;
+    case 'spooky':
+      props.push(part({ name: 'Pumpkin', pos: [0, 1.6, 0], size: [3, 3, 3], color: [255, 140, 40], material: 'plastic', shape: 'ball', children: [pointLight('PumpkinGlow', [255, 160, 60], 1.5, 12)] }));
+      props.push(part({ name: 'Grave', pos: [3.4, 1.6, 0.6], size: [2, 3, 0.6], color: [120, 120, 130], material: 'slate' }));
+      break;
+    case 'festive':
+      props.push(part({ name: 'XmasTree', pos: [0, 3, 0], size: [2, 6, 2], color: [92, 60, 36], material: 'wood', shape: 'cylinder' }));
+      props.push(part({ name: 'XmasLeaves', pos: [0, 6.4, 0], size: [6, 4, 6], color: [36, 120, 66], material: 'grass', shape: 'ball', children: [pointLight('XmasGlow', [255, 230, 160], 1.6, 14)] }));
+      break;
+    case 'farm':
+      props.push(part({ name: 'HayBale', pos: [0, 1.2, 0], size: [3.4, 2.4, 3.4], color: [214, 184, 92], material: 'sand', shape: 'cylinder' }));
+      props.push(part({ name: 'Fence', pos: [3.6, 1.4, 0], size: [0.4, 2, 4], color: [150, 110, 70], material: 'wood' }));
+      break;
+    case 'urban':
+      props.push(part({ name: 'StreetSign', pos: [0, 4, 0], size: [0.4, 8, 0.4], color: [70, 74, 84], material: 'metal', children: [part({ name: 'SignPlate', pos: [0, 4, 0], size: [3, 1.4, 0.2], color: palette.accent, material: 'neon' })] }));
+      props.push(part({ name: 'NewsBox', pos: [2.6, 1.2, 0], size: [1.6, 2.4, 1.4], color: [40, 120, 180], material: 'metal' }));
       break;
     default:
       props.push(buildRock([0, 0, 0], rng, palette));
