@@ -16,8 +16,9 @@ import {
 import {
   questServiceModule, achievementServiceModule, talentServiceModule, dailyServiceModule,
   tradeServiceModule, bossServiceModule, wordGameServiceModule, wordGameClientModule,
-  dayCycleModule, antiCheatModule, leaderboardServiceModule, tutorialServiceModule, SYSTEM_CATALOG,
+  dayCycleModule, antiCheatModule, SYSTEM_CATALOG,
 } from './systems.js';
+import { leaderboardServiceModule, tutorialServiceModule } from './systems-extra.js';
 import { treeStats } from './rbxlx.js';
 
 export const GENRES = {
