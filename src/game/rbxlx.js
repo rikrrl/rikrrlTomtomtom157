@@ -22,7 +22,7 @@ function vector3(v) {
   return `<X>${num(v[0])}</X><Y>${num(v[1])}</Y><Z>${num(v[2])}</Z>`;
 }
 
-function coorderFrame(v) {
+function coordinateFrame(v) {
   const [x, y, z, r00, r01, r02, r10, r11, r12, r20, r21, r22] = v;
   return [
     `<X>${num(x)}</X>`, `<Y>${num(y)}</Y>`, `<Z>${num(z)}</Z>`,
@@ -46,7 +46,7 @@ const PROP_SERIALIZERS = {
   double: (name, v) => `<double name="${name}">${num(v)}</double>`,
   token: (name, v) => `<token name="${name}">${Math.round(v)}</token>`,
   Vector3: (name, v) => `<Vector3 name="${name}">${vector3(v)}</Vector3>`,
-  CFrame: (name, v) => `<CoorderFrame name="${name}">${coorderFrame(v)}</CoorderFrame>`,
+  CFrame: (name, v) => `<CoordinateFrame name="${name}">${coordinateFrame(v)}</CoordinateFrame>`,
   Color3uint8: (name, v) => `<Color3uint8 name="${name}">${v.map((c) => Math.max(0, Math.min(255, Math.round(c)))).join(' ')}</Color3uint8>`,
   Color3: (name, v) => `<Color3 name="${name}"><R>${num(v[0])}</R><G>${num(v[1])}</G><B>${num(v[2])}</B></Color3>`,
   UDim2: (name, v) => `<UDim2 name="${name}">${udim2(v)}</UDim2>`,
@@ -75,7 +75,7 @@ function writeItem(node, depth, out) {
     if (!prop) continue;
     const serialiser = PROP_SERIALIZERS[prop.t];
     if (!serialiser) continue; // unbekannte Typen werden ausgelassen (Studio ignoriert sie ebenfalls)
-    out.push(`${pad}\t\t${serialiser(propName, prop.v)}`);
+    out.push(`${pad}\t\t${serialiser(name, prop.v)}`);
   }
   out.push(`${pad}\t</Properties>`);
 
@@ -92,8 +92,7 @@ export function serializeRbxlx(services) {
   const out = [];
   out.push('<?xml version="1.0" encoding="utf-8"?>');
   out.push(
-    '<roblox xmlns:xsi="http://www.w3.org/2005/XMLSchema-instance" ' +
-      'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" ' +
+    '<roblox xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" ' +
       'xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">',
   );
   out.push('\t<External>null</External>');
@@ -105,12 +104,12 @@ export function serializeRbxlx(services) {
 
 /** Zählt Instanzen und Skripte für die Fortschritts-/Statanzeige. */
 export function treeStats(tree) {
-  const stats = { instances: 0, parts: 0, scripts: 0, models: 0, folders: 0, guis: 0, scriptLins: 0, classes: {} };
+  const stats = { instances: 0, parts: 0, scripts: 0, models: 0, folders: 0, guis: 0, scriptLines: 0, classes: {} };
   const walk = (node) => {
     stats.instances++;
     const cls = node.className;
     stats.classes[cls] = (stats.classes[cls] || 0) + 1;
-    if (['Part', 'WedgelPart', 'TrusPart', 'SpawnLocation'].includes(cls)) stats.parts++;
+    if (['Part', 'WedgePart', 'TrussPart', 'SpawnLocation'].includes(cls)) stats.parts++;
     if (['Script', 'LocalScript', 'ModuleScript'].includes(cls)) {
       stats.scripts++;
       const src = node.props?.Source?.v || '';
