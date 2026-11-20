@@ -144,22 +144,92 @@ export function detectColors(text) {
 }
 
 /**
- * Qualitätsstufen: bestimmen Detaildichte, Anzahl der Systeme und die Rechenzeit.
- * "Die KI lässt sich Zeit" ist hier eine echte Größe, keine Anzeige-Attrappe.
+ * Zwei voneinander unabhängige Regler:
+ *
+ *  - QUALITY_LEVELS = Spieltiefe. Bestimmt Umfang und Inhalt: Zonen, Systeme,
+ *    Detaildichte, Deko und Detaillierungs-Durchläufe.
+ *  - SPEED_LEVELS   = Tempo. Bestimmt, wie lange die KI arbeitet und wie viele
+ *    Zusatzpässe sie fährt. Jeder Zusatzpass erzeugt echte zusätzliche Inhalte
+ *    (Bauteile, Deko, Coins, Shop-Artikel, Quest-Ketten), keine Warte-Attrappe.
+ *
+ * Beispiel: "Turbo + Meister" = großes Spiel in kurzer Zeit,
+ *           "Lass dir Zeit + Basis" = kleines Spiel mit maximaler Sorgfalt.
  */
 export const QUALITY_LEVELS = {
-  schnell: { level: 'schnell', label: 'Schnell', detail: 0.6, decor: 0.55, systems: 3, zoneCap: 4, passes: 1, seconds: 1 },
-  grundlich: { level: 'grundlich', label: 'Gründlich', detail: 1, decor: 1, systems: 6, zoneCap: 6, passes: 2, seconds: 5 },
-  maximal: { level: 'maximal', label: 'Maximal', detail: 1.6, decor: 1.75, systems: 9, zoneCap: 8, passes: 3, seconds: 10 },
+  basis: {
+    level: 'basis', label: 'Basis', blurb: 'Sauberes Grundspiel mit den Kernsystemen.',
+    detail: 0.9, decor: 0.9, systems: 5, zoneCap: 4, boards: 1, passes: 1, timeBonus: 0, target: 74,
+  },
+  hoch: {
+    level: 'hoch', label: 'Hoch', blurb: 'Mehr Zonen, mehr Deko, mehr Systeme.',
+    detail: 1.25, decor: 1.35, systems: 7, zoneCap: 6, boards: 2, passes: 2, timeBonus: 1, target: 84,
+  },
+  profi: {
+    level: 'profi', label: 'Profi', blurb: 'Volle Karte, tiefe Systeme, Feinschliff-Pässe.',
+    detail: 1.7, decor: 1.95, systems: 9, zoneCap: 8, boards: 3, passes: 3, timeBonus: 2, target: 91,
+  },
+  meister: {
+    level: 'meister', label: 'Meister', blurb: 'Maximaler Umfang, alle Systeme, mehrere Durchläufe.',
+    detail: 2.2, decor: 2.6, systems: 12, zoneCap: 8, boards: 4, passes: 4, timeBonus: 3, target: 96,
+  },
 };
+
+export const SPEED_LEVELS = {
+  turbo: { level: 'turbo', label: 'Turbo', seconds: 2, extraPasses: 0, blurb: 'Sofort ein Ergebnis.' },
+  normal: { level: 'normal', label: 'Normal', seconds: 5, extraPasses: 0, blurb: 'Zügig, ohne Zusatzpässe.' },
+  gemuetlich: { level: 'gemuetlich', label: 'Gemütlich', seconds: 9, extraPasses: 1, blurb: 'Ein Feinschliff-Pass mehr.' },
+  ausgiebig: { level: 'ausgiebig', label: 'Lass dir Zeit', seconds: 14, extraPasses: 2, blurb: 'Zwei Zusatzpässe, messbar mehr Inhalt.' },
+};
+
+/** Alte Projekte (schnell/gründlich/maximal) bleiben vollständig baubar. */
+const LEGACY_QUALITY = { schnell: 'basis', grundlich: 'hoch', maximal: 'meister' };
+
+export function resolveQuality(level) {
+  const key = LEGACY_QUALITY[level] || level;
+  return QUALITY_LEVELS[key] || QUALITY_LEVELS.hoch;
+}
+
+export function resolveSpeed(level) {
+  return SPEED_LEVELS[level] || SPEED_LEVELS.normal;
+}
+
+/** Vorschau für die Oberfläche: Dauer, Umfang, Durchläufe einer Kombination. */
+export function estimateBuild(quality, speed) {
+  const q = resolveQuality(quality);
+  const s = resolveSpeed(speed);
+  const seconds = Math.min(17, s.seconds + q.timeBonus);
+  return {
+    quality: q.level,
+    qualityLabel: q.label,
+    speed: s.level,
+    speedLabel: s.label,
+    seconds,
+    systems: q.systems,
+    zoneCap: q.zoneCap,
+    passes: q.passes + s.extraPasses,
+    extraPasses: s.extraPasses,
+    target: q.target,
+  };
+}
 
 export function detectQuality(text) {
   const t = normalise(text);
-  if (/(maximal|maximum|ultra|episch|perfekt|beste|best|so gut wie moeglich|so gut wie möglich|detailreich|so detailliert)/.test(t)) {
-    return QUALITY_LEVELS.maximal;
+  if (/(meister|meisterwerk|maximal|maximum|ultra|episch|perfekt|beste version|so gut wie moeglich|so gut wie möglich|detailreich|so detailliert)/.test(t)) {
+    return QUALITY_LEVELS.meister;
   }
-  if (/(schnell|quick|sofort|mal eben|kurz|simpel|einfach nur)/.test(t)) return QUALITY_LEVELS.schnell;
-  return QUALITY_LEVELS.grundlich;
+  if (/(profi|professionell|aufwendig|anspruchsvoll)/.test(t)) return QUALITY_LEVELS.profi;
+  if (/(einfach|simpel|basic|minimal|nur klein|klein halten)/.test(t)) return QUALITY_LEVELS.basis;
+  return QUALITY_LEVELS.hoch;
+}
+
+export function detectSpeed(text) {
+  const t = normalise(text);
+  if (/(lass dir zeit|laß dir zeit|nimm dir zeit|ausgiebig|so lange wie nötig|so lange wie noetig|ohne eile|mit ruhe|sorgfältig|sorgfaeltig|sehr genau|gründlich|gruendlich)/.test(t)) {
+    return SPEED_LEVELS.ausgiebig;
+  }
+  if (/(gemütlich|gemuetlich|entspannt|zügig|zuegig|bald)/.test(t)) return SPEED_LEVELS.gemuetlich;
+  if (/(schnell|sofort|turbo|beeil|mal eben|quick|asap)/.test(t)) return SPEED_LEVELS.turbo;
+  return SPEED_LEVELS.normal;
 }
 
 function titleFromText(text, genre) {
@@ -214,7 +284,9 @@ export function analyzePrompt(text, options = {}) {
   const npcHint = countMentions(raw, ['npc', 'npcs', 'händler', 'charakter', 'bewohner']);
   const petHint = countMentions(raw, ['pet', 'pets', 'haustier', 'haustiere', 'tier', 'tiere']);
 
-  const quality = options.quality ? (QUALITY_LEVELS[options.quality] || QUALITY_LEVELS.grundlich) : detectQuality(raw);
+  const quality = options.quality ? resolveQuality(options.quality) : detectQuality(raw);
+  const speed = options.speed ? resolveSpeed(options.speed) : detectSpeed(raw);
+  const estimate = estimateBuild(quality.level, speed.level);
   const mapSize = size || (features.pets && /groß|big|riesig|huge/.test(normalise(raw)) ? 'groß' : 'mittel');
 
   const spec = {
@@ -228,6 +300,11 @@ export function analyzePrompt(text, options = {}) {
     mapSize,
     quality: quality.level,
     qualityLabel: quality.label,
+    speed: speed.level,
+    speedLabel: speed.label,
+    speedSeconds: estimate.seconds,
+    polishPasses: speed.extraPasses,
+    passes: estimate.passes,
     zoneCount: Math.max(2, Math.min(quality.zoneCap, zoneHint || (mapSize === 'riesig' ? 7 : mapSize === 'groß' ? 6 : 5))),
     shopCount: Math.max(2, Math.min(7, Math.max(shopHint || 0, features.shops ? 5 : 3))),
     npcCount: Math.max(2, Math.min(7, npcHint || (features.npcs ? 5 : 4))),
@@ -253,7 +330,8 @@ export function analyzePrompt(text, options = {}) {
       `Genre erkannt: ${(GENRES[genre] || GENRES.simulator).label}`,
       `Kartengröße: ${mapSize} mit ${spec.zoneCount} Zonen`,
       `Shops: ${spec.shopCount}, NPCs: ${spec.npcCount}${features.pets ? `, Pets: ${spec.petCount}` : ''}`,
-      `Qualitätsstufe: ${quality.label} (${quality.systems} Systeme, ${quality.passes} Prüfdurchläufe)`,
+      `Spieltiefe: ${quality.label} (${quality.systems} Systeme, bis ${quality.zoneCap} Zonen)`,
+      `Tempo: ${speed.label} – ca. ${estimate.seconds} s Arbeitszeit, ${estimate.passes} Durchläufe${speed.extraPasses ? ` inkl. ${speed.extraPasses} Zusatzpässen` : ''}`,
     ],
   };
 
@@ -315,16 +393,58 @@ export function applyChatInstruction(message, project) {
   if (/(mehr|more)\s+(zonen|zones|gebiete|inseln)/.test(text)) bump('zoneCount', 1, 2, 8, 'Zonen');
   if (/(mehr|more)\s+(npcs|händler|haendler)/.test(text)) bump('npcCount', 1, 2, 7, 'NPCs');
 
-  // Qualität / Detailtiefe erhöhen
-  if (/(besser|mehr details|mehr inhalt|mehr systeme|mehr tiefe|ausführlicher|ausfuehrlicher|hübscher|huebscher|aufwendiger|mehr liebe)/.test(text)) {
-    const order = ['schnell', 'grundlich', 'maximal'];
-    const current = order.indexOf(spec.quality || 'grundlich');
-    if (current < order.length - 1) {
-      spec.quality = order[current + 1];
-      changes.push(`Qualitätsstufe: ${spec.quality}`);
+  // Spieltiefe (Qualität) ändern – unabhängig vom Tempo
+  const qualityOrder = ['basis', 'hoch', 'profi', 'meister'];
+  const currentQuality = resolveQuality(spec.quality);
+  const setQuality = (next) => {
+    spec.quality = next.level;
+    spec.qualityLabel = next.label;
+    spec.passes = next.passes + (resolveSpeed(spec.speed).extraPasses || 0);
+  };
+  if (/(besser|mehr details|mehr inhalt|mehr systeme|mehr tiefe|ausführlicher|ausfuehrlicher|hübscher|huebscher|aufwendiger|mehr liebe|hochwertiger)/.test(text)) {
+    const index = qualityOrder.indexOf(currentQuality.level);
+    if (index < qualityOrder.length - 1) {
+      const next = QUALITY_LEVELS[qualityOrder[index + 1]];
+      changes.push(`Spieltiefe: ${currentQuality.label} → ${next.label} (${next.systems} Systeme, bis ${next.zoneCap} Zonen)`);
+      setQuality(next);
     } else {
       spec.seed = (spec.seed || 1) + 13;
-      changes.push('Zusätzliche Detail- und Variationsstufe erzeugt');
+      changes.push('Spieltiefe bleibt auf Meister – zusätzlicher Detail-Durchgang mit neuer Variation');
+    }
+  } else if (/(weniger details|einfacher|reduzier|kleiner halten)/.test(text)) {
+    const index = qualityOrder.indexOf(currentQuality.level);
+    if (index > 0) {
+      const next = QUALITY_LEVELS[qualityOrder[index - 1]];
+      changes.push(`Spieltiefe: ${currentQuality.label} → ${next.label}`);
+      setQuality(next);
+    }
+  }
+
+  // Tempo ändern – bestimmt Arbeitszeit und Zusatzpässe
+  const speedOrder = ['turbo', 'normal', 'gemuetlich', 'ausgiebig'];
+  const currentSpeed = resolveSpeed(spec.speed);
+  const setSpeed = (next) => {
+    spec.speed = next.level;
+    spec.speedLabel = next.label;
+    spec.polishPasses = next.extraPasses;
+    spec.speedSeconds = Math.min(17, next.seconds + resolveQuality(spec.quality).timeBonus);
+    spec.passes = resolveQuality(spec.quality).passes + next.extraPasses;
+  };
+  if (/(zeit lassen|zeit zu lassen|mehr zeit|nimm dir zeit|langsamer|ausgiebig|gemütlich|gemuetlich|mit ruhe|ohne eile)/.test(text)) {
+    const index = speedOrder.indexOf(currentSpeed.level);
+    if (index < speedOrder.length - 1) {
+      const next = SPEED_LEVELS[speedOrder[index + 1]];
+      changes.push(`Tempo: ${currentSpeed.label} → ${next.label} (ca. ${Math.min(17, next.seconds + resolveQuality(spec.quality).timeBonus)} s, ${next.extraPasses} Zusatzpässe)`);
+      setSpeed(next);
+    } else {
+      changes.push('Tempo bleibt auf „Lass dir Zeit“ – die KI arbeitet bereits mit allen Zusatzpässen');
+    }
+  } else if (/(schneller|sofort|turbo|beeil|keine zeit|schnell machen)/.test(text)) {
+    const index = speedOrder.indexOf(currentSpeed.level);
+    if (index > 0) {
+      const next = SPEED_LEVELS[speedOrder[index - 1]];
+      changes.push(`Tempo: ${currentSpeed.label} → ${next.label}`);
+      setSpeed(next);
     }
   }
 
