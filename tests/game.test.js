@@ -291,3 +291,46 @@ test('Neue Funktionen: Angeln, Crafting, Gilden, Season-Pass und Dialoge sind ei
   const validation = validateBuild(project, spec);
   assert.ok(validation.score >= 80, 'Pruefung muss bestehen (' + validation.score + ')');
 });
+
+test('Verschiedene Beschreibungen ergeben verschiedene Spiele, gleicher Text bleibt gleich', () => {
+  const textA = 'Erstelle ein Simulator-Spiel mit Pets, Coins und Shops.';
+  const textB = 'Erstelle ein Simulator-Spiel mit Pets, Coins und Shops in einer Eiswelt mit Pinguinen.';
+  const a = analyzePrompt(textA).spec;
+  const b = analyzePrompt(textB).spec;
+  const a2 = analyzePrompt(textA).spec;
+
+  assert.equal(a.title, a2.title, 'Gleicher Text muss denselben Titel ergeben');
+  assert.deepEqual(a.zoneNames, a2.zoneNames, 'Gleicher Text muss dieselben Zonen ergeben');
+  assert.equal(a.seed, a2.seed, 'Seed muss aus dem Text entstehen, nicht zufaellig');
+
+  assert.equal(b.themeKey, 'eis', 'Eiswelt muss als Thema erkannt werden');
+  assert.notEqual(a.title, b.title, 'Titel muss sich mit dem Text aendern');
+  assert.notDeepEqual(a.zoneNames, b.zoneNames, 'Zonen muessen sich mit dem Text aendern');
+  assert.notDeepEqual(a.palette.ground, b.palette.ground, 'Farben muessen sich mit dem Thema aendern');
+  assert.notEqual(a.layout + a.title, b.layout + b.title, 'Spiele duerfen nicht identisch sein');
+});
+
+test('Eigene Zonen aus dem Text landen in der Map', () => {
+  const spec = analyzePrompt('Horror-Spiel in einem verlassenen Krankenhaus mit Zonen: Keller, OP-Saal, Dachboden').spec;
+  assert.equal(spec.genre, 'horror');
+  assert.deepEqual(spec.zoneNames.slice(0, 3), ['Keller', 'OP-Saal', 'Dachboden']);
+  const project = generateProject(spec);
+  const xml = serializeRbxlx(project.services);
+  assertWellFormedXml(xml);
+  for (const zone of ['Keller', 'OP-Saal', 'Dachboden']) assert.ok(xml.includes(zone), zone + ' fehlt in der Map');
+});
+
+test('Chat-Anweisungen veraendern Welt, Zonen und Layout', () => {
+  const base = analyzePrompt('Erstelle ein Simulator-Spiel mit Pets und Coins.').spec;
+
+  const themeResult = applyChatInstruction(structuredClone(base), 'Mach daraus ein Weltraum-Spiel');
+  assert.equal(themeResult.spec.themeKey, 'weltraum');
+  assert.ok(themeResult.changes.some((c) => /Weltraum/.test(c)), 'Aenderung muss benannt werden');
+
+  const zoneResult = applyChatInstruction(structuredClone(base), 'Zonen: Wald, Strand, Hoehle');
+  assert.deepEqual(zoneResult.spec.zoneNames.slice(0, 3), ['Wald', 'Strand', 'Hoehle']);
+  assert.equal(zoneResult.spec.zoneCount, 3);
+
+  const layoutResult = applyChatInstruction(structuredClone(base), 'Aendere das Layout der Karte');
+  assert.notEqual(layoutResult.spec.layout, base.layout, 'Layout muss wechseln');
+});
