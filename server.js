@@ -3,7 +3,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-import { analyzePrompt, applyChatInstruction, QUALITY_LEVELS } from './src/ai/engine.js';
+import { analyzePrompt, applyChatInstruction, QUALITY_LEVELS, SPEED_LEVELS, estimateBuild, resolveQuality, resolveSpeed } from './src/ai/engine.js';
 import { analyzeRobloxLink } from './src/ai/link.js';
 import { generateProject, validateBuild } from './src/game/generator.js';
 import { serializeRbxlx } from './src/game/rbxlx.js';
@@ -17,9 +17,9 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json({ limit: '3mb' }));
 
 /**
- * Arbeitsphasen der KI. Gewichte bestimmen, wie viel Zeit eine Phase bekommt;
- * die Qualitätsstufe legt die Gesamtdauer und die Zahl der Durchgänge fest.
- * min: 1 = ab "gründlich", min: 2 = nur "maximal".
+ * Arbeitsphasen der KI. Gewichte verteilen die Arbeitszeit.
+ *  min:  ab welcher Spieltiefe die Phase dazukommt (basis 0, hoch 1, profi 2, meister 3)
+ *  pass: echte Mehrarbeit – die Phase baut zusätzliche Inhalte in den Instanzbaum
  */
 const STAGE_PLAN = [
   { label: 'Beschreibung und Wunschfeatures auswerten', weight: 1 },
@@ -35,30 +35,44 @@ const STAGE_PLAN = [
   { label: 'Deko, Beleuchtung und Atmosphäre setzen', weight: 3 },
   { label: 'HUD, Menüs und UI-Layout gestalten', weight: 2 },
   { label: 'Luau-Systeme und Serverlogik schreiben', weight: 3 },
+  { label: 'Bestenliste und Tutorial verdrahten', weight: 2, min: 1 },
   { label: 'Speicherstände und Multiplayer verdrahten', weight: 2 },
-  { label: 'Detaillierungs-Durchgang (zweiter Pass)', weight: 2, min: 1 },
+  { label: 'Detaillierungs-Durchgang (zweiter Pass)', weight: 2, min: 1, pass: true },
   { label: 'Balancing-Pässe und Feinschliff', weight: 2, min: 1 },
   { label: 'Struktur, Skripte und Export prüfen', weight: 1 },
 ];
 
-function stagePlanFor(quality) {
-  const level = QUALITY_LEVELS[quality] || QUALITY_LEVELS.grundlich;
-  const rank = { schnell: 0, grundlich: 1, maximal: 2 }[level.level] ?? 1;
-  const stages = STAGE_PLAN.filter((stage) => (stage.min || 0) <= rank);
+/**
+ * Baut den Phasenplan aus Spieltiefe (Umfang) und Tempo (Arbeitszeit).
+ * Jeder Zusatzpass des Tempos ist eine zusätzliche echte Bauphase.
+ */
+function stagePlanFor(quality, speed) {
+  const q = resolveQuality(quality);
+  const s = resolveSpeed(speed);
+  const rank = { basis: 0, hoch: 1, profi: 2, meister: 3 }[q.level] ?? 1;
+  const stages = STAGE_PLAN.filter((stage) => (stage.min || 0) <= rank).map((stage) => ({ ...stage }));
+  for (let i = 0; i < s.extraPasses; i++) {
+    stages.push({
+      label: `Zusatz-Feinschliff-Pass ${i + 1} (Marktstände, Deko, Coin-Spots, NPCs)`,
+      weight: 2,
+      pass: true,
+    });
+  }
   const totalWeight = stages.reduce((sum, stage) => sum + stage.weight, 0);
-  const totalMs = level.seconds * 1000;
+  const totalMs = Math.min(17000, (s.seconds + q.timeBonus) * 1000);
   return stages.map((stage, i) => ({
     id: i + 1,
     label: stage.label,
     status: 'pending',
+    pass: Boolean(stage.pass),
     ms: Math.max(40, Math.round((stage.weight / totalWeight) * totalMs)),
   }));
 }
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-function buildStages(quality) {
-  return stagePlanFor(quality);
+function buildStages(quality, speed) {
+  return stagePlanFor(quality, speed);
 }
 
 /** Erzeugt Instanzbaum und abgeleitete Daten (Statistiken, Skriptliste). */
@@ -73,18 +87,32 @@ function materialize(project) {
   return built;
 }
 
-/** Führt die Bauphasen mit sichtbarem Fortschritt aus. */
+/** Führt die Bauphasen mit sichtbarem Fortschritt und echter Arbeit aus. */
 async function runBuild(project) {
-  project.stages = buildStages(project.spec.quality);
+  const started = Date.now();
+  project.stages = buildStages(project.spec.quality, project.spec.speed);
   project.estimatedMs = project.stages.reduce((sum, stage) => sum + stage.ms, 0);
   project.progress = 0;
   project.status = 'building';
   delete project.error;
+  delete project.report;
   saveProject(project);
+
+  // Grundarbeit: der vollständige Instanzbaum entsteht wirklich
+  project.spec.polishPasses = 0;
+  materialize(project);
+  const baseParts = project.stats.parts;
+
   for (const stage of project.stages) {
     stage.status = 'running';
     saveProject(project);
     await delay(stage.ms);
+    if (stage.pass) {
+      // Echte Mehrarbeit: erneuter Generator-Durchlauf mit einem Zusatzpass mehr
+      project.spec.polishPasses = (project.spec.polishPasses || 0) + 1;
+      materialize(project);
+      stage.detail = `${project.stats.parts} Bauteile (+${project.stats.parts - baseParts})`;
+    }
     stage.status = 'done';
     const done = project.stages.filter((s) => s.status === 'done').length;
     project.progress = Math.round((done / project.stages.length) * 100);
@@ -95,6 +123,22 @@ async function runBuild(project) {
     project.status = 'ready';
     project.progress = 100;
     project.builtAt = new Date().toISOString();
+    project.report = {
+      quality: project.spec.quality,
+      qualityLabel: project.spec.qualityLabel || resolveQuality(project.spec.quality).label,
+      speed: project.spec.speed || 'normal',
+      speedLabel: project.spec.speedLabel || resolveSpeed(project.spec.speed).label,
+      passes: project.spec.passes || resolveQuality(project.spec.quality).passes,
+      polishPasses: project.spec.polishPasses || 0,
+      parts: project.stats.parts,
+      instances: project.stats.instances,
+      scripts: (project.scripts || []).length,
+      scriptLines: project.stats.scriptLines,
+      zones: project.zoneCount,
+      systems: (project.systems || []).length,
+      score: project.validation ? project.validation.score : 0,
+      workSeconds: Math.round((Date.now() - started) / 100) / 10,
+    };
   } catch (error) {
     project.status = 'error';
     project.error = error.message;
@@ -126,7 +170,7 @@ function newProjectShell(spec, source, understanding) {
     source,
     status: 'building',
     progress: 0,
-    stages: buildStages(spec.quality),
+    stages: buildStages(spec.quality, spec.speed),
     chat: [],
     version: '1.0.0',
     syncToken: newToken(),
@@ -141,8 +185,15 @@ app.get('/api/health', (req, res) => {
     name: 'Roblox AI Studio',
     engine: 'lokale Engine',
     version: '1.0.0',
-    capabilities: ['prompt-build', 'link-rebuild', 'chat-edit', 'rbxlx-export', 'studio-plugin', 'quality-levels', 'word-game'],
-    qualities: Object.values(QUALITY_LEVELS).map((q) => ({ level: q.level, label: q.label, seconds: q.seconds, systems: q.systems, passes: q.passes })),
+    capabilities: ['prompt-build', 'link-rebuild', 'chat-edit', 'rbxlx-export', 'studio-plugin', 'quality-levels', 'speed-levels', 'word-game'],
+    qualities: Object.values(QUALITY_LEVELS).map((q) => ({
+      level: q.level, label: q.label, blurb: q.blurb,
+      systems: q.systems, zoneCap: q.zoneCap, passes: q.passes, timeBonus: q.timeBonus, target: q.target,
+    })),
+    speeds: Object.values(SPEED_LEVELS).map((s) => ({
+      level: s.level, label: s.label, blurb: s.blurb, seconds: s.seconds, extraPasses: s.extraPasses,
+    })),
+    presets: Object.values(QUALITY_LEVELS).flatMap((q) => Object.values(SPEED_LEVELS).map((s) => estimateBuild(q.level, s.level))),
   });
 });
 
@@ -175,7 +226,7 @@ app.post('/api/projects', async (req, res) => {
   }
 
   try {
-    const { spec, understanding } = analyzePrompt(prompt, { quality: body.quality });
+    const { spec, understanding } = analyzePrompt(prompt, { quality: body.quality, speed: body.speed });
     const project = newProjectShell(spec, { type: 'prompt', text: prompt }, understanding);
     project.chat.push({ role: 'user', text: prompt, at: new Date().toISOString() });
     saveProject(project);
@@ -187,7 +238,7 @@ app.post('/api/projects', async (req, res) => {
         `Ich habe "${spec.title}" erzeugt.\n` +
         `Genre: ${understanding.genreLabel}, Map: ${spec.mapSize} mit ${spec.zoneCount} Zonen.\n` +
         `${project.stats.parts} Bauteile, ${project.stats.instances} Instanzen, ${project.stats.scriptLines} Zeilen Luau, ${(project.systems || []).length} aktive Systeme.\n` +
-        `Qualitätsstufe: ${spec.qualityLabel} · Qualitätsprüfung ${project.validation ? project.validation.score : 0}/100.\n\n` +
+        `Spieltiefe: ${spec.qualityLabel} (${(project.systems || []).length} aktive Systeme) · Tempo: ${spec.speedLabel} (${spec.polishPasses || 0} Zusatzpässe) · Qualitätsprüfung ${project.validation ? project.validation.score : 0}/100.\n\n` +
         'Du kannst jetzt als .rbxlx exportieren oder mir Änderungen sagen – ich bearbeite dasselbe Projekt weiter.',
     });
     saveProject(project);
@@ -219,7 +270,7 @@ async function createFromLink(body, res) {
     return res.status(422).json({ analysis, error: analysis.error });
   }
 
-  const promptAnalysis = analyzePrompt(`${analysis.facts.name} ${analysis.facts.description || ''}`, { quality: body.quality });
+  const promptAnalysis = analyzePrompt(`${analysis.facts.name} ${analysis.facts.description || ''}`, { quality: body.quality, speed: body.speed });
   const spec = {
     ...promptAnalysis.spec,
     ...analysis.spec,
@@ -228,6 +279,11 @@ async function createFromLink(body, res) {
     palette: promptAnalysis.spec.palette,
     quality: promptAnalysis.spec.quality,
     qualityLabel: promptAnalysis.spec.qualityLabel,
+    speed: promptAnalysis.spec.speed,
+    speedLabel: promptAnalysis.spec.speedLabel,
+    speedSeconds: promptAnalysis.spec.speedSeconds,
+    polishPasses: promptAnalysis.spec.polishPasses,
+    passes: promptAnalysis.spec.passes,
     prompt: `Nachbau von ${analysis.facts.name}`,
     description: analysis.facts.description || '',
     source: { type: 'link', url, facts: analysis.facts },
