@@ -106,7 +106,11 @@ test('Chat bearbeitet das bestehende Projekt inkrementell', () => {
   assert.ok(more.reply.length > 10);
 
   const after = generateProject(more.spec);
-  assert.notEqual(before.stats.parts, after.stats.parts);
+  // Pets sind datengetrieben (Config + Skripte), nicht als Bauteile im Workspace.
+  assert.ok(
+    after.config.pets.length > before.config.pets.length,
+    `Mehr Pets sollten mehr Pet-Arten ergeben: ${before.config.pets.length} → ${after.config.pets.length}`,
+  );
 
   const color = applyChatInstruction('Bitte in Pink und Lila', { spec: more.spec, title: more.spec.title });
   assert.notDeepEqual(color.spec.palette.accent2, more.spec.palette.accent2, 'Farbe sollte sich geändert haben');
