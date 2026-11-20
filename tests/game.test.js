@@ -60,9 +60,9 @@ test('Textbeschreibung erzeugt ein vollständiges Spiel', () => {
   const replicated = project.services.find((s) => s.name === 'ReplicatedStorage');
   const configModule = collect(replicated, 'ModuleScript').find((n) => n.name === 'GameConfig');
   assert.ok(configModule, 'GameConfig-Modul fehlt');
-  assert.match(configModule.props.Source.v, /Pets\s*=/);
-  assert.match(configModule.props.Source.v, /Shops\s*=/);
-  assert.match(configModule.props.Source.v, /Quests\s*=/);
+  assert.match(configModule.props.Source.v, /pets\s*=/);
+  assert.match(configModule.props.Source.v, /shops\s*=/);
+  assert.match(configModule.props.Source.v, /quests\s*=/);
 
   const serverScript = collect(project.services.find((s) => s.name === 'ServerScriptService'), 'Script')[0];
   assert.ok(serverScript, 'Server-Skript fehlt');
